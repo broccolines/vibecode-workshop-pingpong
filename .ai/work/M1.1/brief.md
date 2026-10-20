@@ -38,5 +38,8 @@ Both humans can reach our team's app at the assigned HTTPS URL, on a laptop and 
 
 - Human owner: Niklas. Phone check: Eric.
 - Branch: `m1.1-live-url`, used for the evidence PR and for any fix that turns out to be needed.
-- Coder: `coder` subagent (Sonnet), only if a change is needed. Reviewer: `reviewer` subagent (Opus) checks the recorded evidence and any diff. Committer: `committer` subagent.
+- Coder: `coder` subagent, only if a change is needed. Reviewer: an independent `reviewer`
+  session checks the recorded evidence and any diff. Committer: `committer` subagent. The
+  reviewer that actually ran is named with its provider and model in
+  `.ai/work/M1.1/review.md`.
 - Evidence: `.ai/work/M1.1/validation.md` (deploy and smoke output with private details removed, health JSON, phone check) and `.ai/work/M1.1/review.md`.

@@ -5,7 +5,8 @@ Reviewed head SHAs:
 - Round 1: `f4ce1f14dd245f3f15652c146b0bc83e538ecefe` (later rewritten away — see "History
   rewrite" below; the SHA is kept on purpose so the trail stays honest)
 - Round 2: `f8ea058641d1c2e73aa0bfc77078e5e54638d98d`
-- Round 3: the rewritten single commit on `m1.1-live-url` — see the table at the bottom
+- Round 3: `8ca61f61c356b1d17b3b477389cf1d860f6f0e24` — the rewritten single commit on
+  `m1.1-live-url` (the branch tip after the history rewrite)
 
 Reviewer session/provider: opencode subagent, `deepseek-v4.1-flash-free`, in three separate
 sessions. It did not write the evidence and did not run the deploy.
@@ -28,7 +29,8 @@ One blocker and eight further findings. Full list in the table below.
 
 ## Round 2 — REQUEST CHANGES
 
-The evidence itself was fixed, but three further problems were found:
+The evidence itself was fixed, but six further problems were found — three of them about the
+evidence's internal honesty, three about the review trail:
 
 | # | Severity | Finding | Fix |
 |---|---|---|---|
@@ -64,6 +66,23 @@ first commit, and merging it would have written that URL into `main`'s history f
 - Greps for the team URL, the team number, host paths, key paths, tokens and attribution
   trailers.
 
+## Round 3 — REQUEST CHANGES, and what changed
+
+Round 3 reviewed the rewritten head `8ca61f6` and confirmed the security substance: the
+history really was rewritten, the tip is clean, and the disclosure is honest. It sent the step
+back for **evidence integrity** only — six minor findings, no blocker:
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | `~/workshop` was ticked `[x]` while the text said it was not independently verified. | Un-ticked and reworded: it is the helper's own statement, not an observation. |
+| 2 | "pulls our public fork, so no credential is stored on the guest" did not follow. | Weakened to "no credential is **needed** for the fetch", with the guest's credential store explicitly not inspected. |
+| 3 | The realignment instruction used `git reset --hard` without a `git status` check first, which conflicts with AGENTS.md rule 3 (preserve dirty work). | The instruction now starts with `git status` and says to save uncommitted work first. |
+| 4 | The brief named a reviewer model that was not the one that ran. | The brief now names no model; the reviewer file names the real one. |
+| 5 | The round-2 record said "three further problems" and listed six. | Corrected. |
+| 6 | The round-3 head was recorded as "the rewritten single commit" instead of a SHA. | The exact SHA `8ca61f6` is now recorded. |
+
+Round 4 verifies these six fixes on the new head.
+
 ## Not verified, in every round
 
 No guest, no SSH, no DNS, no TLS, no public URL probe, no phone, no browser, no GitHub Actions
@@ -77,6 +96,6 @@ guest's release directories, the kept rollback release, the guest's git remote a
 |---|---|---|
 | 1 | `f4ce1f1` | REQUEST CHANGES |
 | 2 | `f8ea058` | REQUEST CHANGES |
-| 3 | rewritten single commit | recorded below |
+| 3 | `8ca61f6` | recorded below |
 
 Round 3: pending.

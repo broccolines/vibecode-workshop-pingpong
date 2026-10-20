@@ -45,13 +45,14 @@ placeholder serves again) was not exercised, because nothing failed.
 ## Access boundary
 
 - [x] The deploy ran on the guest as `vc-team`, without sudo.
-- [x] `~/workshop` was not modified — the deploy helper does not write there by design
-      (`scripts/deploy.mjs` guards that path and prints the line unconditionally on success).
-      This was not verified independently with a separate check; it is the helper's own
-      statement.
-- [x] The guest checkout now pulls our public fork, so no credential is stored on the guest.
-      This is an inference from the fork being public and from a redacted `git remote -v`; it
-      was not verified by inspecting the guest's credential store.
+- [ ] `~/workshop` was not modified — **not independently checked.** The deploy helper does
+      not write there by design (`scripts/deploy.mjs` guards that path and prints the line
+      unconditionally on success), so this is the helper's own statement, not an observation.
+      Nobody looked at the directory's timestamps.
+- [x] The guest checkout now pulls our public fork, so **no credential is needed** for the
+      fetch — the fork is public. Whether some *other* credential is stored on the guest (an
+      old remote, a credential helper, a key) was **not verified**: the guest's credential
+      store was not inspected.
 - [ ] **Open:** Eric has not confirmed his push access to the fork.
 - [ ] **Open:** Eric has not yet added his own personal public key to the guest's
       `~/.ssh/authorized_keys`, and has not connected with it. The key used for this step was
@@ -94,9 +95,18 @@ What that does and does not achieve:
   gone from the object store as well, that is an organiser-side request.
 
 **Niklas's local clone must be realigned.** The branch was force-pushed, so his checkout of
-`m1.1-live-url` now points at the old history. He should run
-`git fetch origin && git checkout m1.1-live-url && git reset --hard origin/m1.1-live-url` in
-his clone before he works on it again.
+`m1.1-live-url` now points at the old history. He should look at his clone first — if it has
+uncommitted work, save it before doing anything else — and then run:
+
+```sh
+git status                       # look first: do not discard work
+git fetch origin
+git checkout m1.1-live-url
+git reset --hard origin/m1.1-live-url
+```
+
+`git reset --hard` throws away uncommitted changes, so the first command matters (AGENTS.md
+rule 3: preserve dirty work).
 
 ## Known disclosure — summary for the humans
 
