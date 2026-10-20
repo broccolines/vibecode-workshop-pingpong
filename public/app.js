@@ -21,21 +21,25 @@ function say(text, bad = true) {
 const nameOf = id => players.find(p => p.id === id)?.name ?? 'Unknown player';
 const myId = () => $('me').value;
 
-function fill(select, list, keep) {
-  select.replaceChildren(...list.map(p => Object.assign(document.createElement('option'), { value: p.id, textContent: p.name })));
-  if (keep && list.some(p => p.id === keep)) select.value = keep;
+function fill(select, list, keep, placeholder) {
+  const options = list.map(p => Object.assign(document.createElement('option'), { value: p.id, textContent: p.name }));
+  if (placeholder) options.unshift(Object.assign(document.createElement('option'), { value: '', textContent: placeholder }));
+  select.replaceChildren(...options);
+  select.value = keep && list.some(p => p.id === keep) ? keep : (placeholder ? '' : select.value);
 }
 
+// "me" is never assumed: it is only set by an explicit pick or by ticking "This is me" when creating a player.
 function render() {
-  const saved = localStorage.getItem('me');
-  fill($('me'), players, myId() || saved);
-  if (myId()) localStorage.setItem('me', myId());
+  const wanted = myId() || localStorage.getItem('me');
+  fill($('me'), players, wanted, 'Choose yourself…');
+  if (myId()) localStorage.setItem('me', myId()); else localStorage.removeItem('me');
   const others = players.filter(p => p.id !== myId());
-  fill($('opponent'), others, $('opponent').value);
-  $('record-section').hidden = others.length === 0;
+  fill($('opponent'), others, $('opponent').value, others.length > 1 ? 'Choose opponent…' : null);
   $('me').disabled = players.length === 0;
+  $('record-section').hidden = !myId() || others.length === 0;
   $('hint').textContent = players.length === 0 ? 'No players yet. Start by creating a player below: that is you.'
-    : players.length === 1 ? 'You need a second player before you can record a match. Create your opponent below.' : '';
+    : !myId() ? 'Choose who you are, or create yourself below, before recording a match.'
+    : others.length === 0 ? 'You need a second player before you can record a match. Create your opponent below.' : '';
 
   $('empty-matches').hidden = matches.length > 0;
   $('match-list').replaceChildren(...[...matches].reverse().map(m => {
@@ -52,17 +56,20 @@ function render() {
 async function load() {
   [players, matches] = await Promise.all([api('/api/players'), api('/api/matches')]);
   render();
+  suggestIsMe();
 }
 
-$('me').addEventListener('change', () => { localStorage.setItem('me', myId()); render(); });
+function suggestIsMe() { $('is-me').checked = !myId(); }
+$('me').addEventListener('change', () => { render(); suggestIsMe(); });
 
 $('player-form').addEventListener('submit', async event => {
   event.preventDefault();
   try {
     const player = await api('/api/players', { name: $('name').value });
-    localStorage.setItem('me', players.length === 0 ? player.id : (myId() || player.id));
+    const makeMe = $('is-me').checked;
     $('name').value = '';
     await load();
+    if (makeMe) { $('me').value = player.id; render(); suggestIsMe(); }
     say(`Player "${player.name}" created.`, false);
   } catch (error) { say(error.message); }
 });
@@ -70,6 +77,8 @@ $('player-form').addEventListener('submit', async event => {
 $('match-form').addEventListener('submit', async event => {
   event.preventDefault();
   const me = myId(), them = $('opponent').value;
+  if (!me) return say('Choose who you are first.');
+  if (!them) return say('Choose your opponent.');
   try {
     await api('/api/matches', {
       actingPlayerId: me, participants: [me, them],

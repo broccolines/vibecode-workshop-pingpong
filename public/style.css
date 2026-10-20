@@ -43,3 +43,5 @@ button { background: #ff8b54; color: #15171c; font-weight: 700; border: 0; paddi
 .matches li { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .7rem 0; border-bottom: 1px solid #34363b; overflow-wrap: anywhere; }
 .matches time { color: #b9b4aa; font-size: .85rem; }
 [hidden] { display: none !important; }
+label.check { display: flex; align-items: center; gap: .5rem; min-height: 44px; }
+label.check input { width: auto; margin: 0; }

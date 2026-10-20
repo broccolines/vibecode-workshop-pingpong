@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { relative, isAbsolute } from 'node:path';
+import { relative, isAbsolute, sep } from 'node:path';
 import { Store, defaultDataDir } from './lib/store.mjs';
 import { createPlayer, recordMatch, RejectedError } from './lib/ladder.mjs';
 
@@ -80,14 +80,18 @@ export function createApp({ revision = process.env.APP_REVISION || 'development'
   });
 }
 
+export function isInsideDir(root, dir) {
+  const rel = relative(root, dir);
+  return rel === '' || (rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel));
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || 3000);
   const host = process.env.HOST || '0.0.0.0';
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be 1–65535');
   const root = fileURLToPath(new URL('.', import.meta.url));
   const dir = defaultDataDir();
-  const rel = relative(root, dir);
-  if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) throw new Error(`DATA_DIR ${dir} must be outside the app directory`);
+  if (isInsideDir(root, dir)) throw new Error(`DATA_DIR ${dir} must be outside the app directory`);
   const store = await Store.open(dir);
   console.log(`Data directory: ${store.dir}`);
   const app = createApp({ store });

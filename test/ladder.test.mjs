@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createApp } from '../server.mjs';
+import http from 'node:http';
+import { createApp, isInsideDir } from '../server.mjs';
+import { MAX_SCORE } from '../lib/ladder.mjs';
 import { Store } from '../lib/store.mjs';
 
 async function start(t, dir) {
@@ -22,13 +24,18 @@ const player = async (c, name) => (await c.post('/api/players', { name })).json(
 const match = (c, acting, a, b, sa, sb) => c.post('/api/matches', {
   actingPlayerId: acting, participants: [a, b], result: { scores: { [a]: sa, [b]: sb } },
 });
-async function rejected(c, response, status) {
-  const before = JSON.stringify([await c.get('/api/players'), await c.get('/api/matches')]);
-  assert.equal(response.status, status);
+async function snapshot(c) {
+  return JSON.stringify([await c.get('/api/players'), await c.get('/api/matches')]);
+}
+// Takes the snapshot BEFORE the request, so "nothing changed" can really fail.
+async function rejected(c, send, status, label = '') {
+  const before = await snapshot(c);
+  const response = await send();
+  assert.equal(response.status, status, label);
   const body = await response.json();
-  assert.equal(typeof body.error, 'string');
-  assert.ok(body.error.length > 0);
-  return before;
+  assert.equal(typeof body.error, 'string', label);
+  assert.ok(body.error.length > 0, label);
+  assert.equal(await snapshot(c), before, `${label}: store changed`);
 }
 
 test('empty store, then Anna 2-1 Ben is recorded with contract-shaped records', async t => {
@@ -102,7 +109,6 @@ test('invalid matches are rejected with a message and change nothing', async t =
   const anna = await player(c, 'Anna'), ben = await player(c, 'Ben'), cem = await player(c, 'Cem');
   const A = anna.id, B = ben.id;
   const scores = (a, b) => ({ [A]: a, [B]: b });
-  const bad = (body, status) => async () => rejected(c, await c.post('/api/matches', body), status);
   const base = { actingPlayerId: A, participants: [A, B], result: { scores: scores(2, 1) } };
   const attempts = [
     ['unknown opponent', { ...base, participants: [A, 'p_nope'], result: { scores: { [A]: 2, p_nope: 1 } } }, 404],
@@ -112,6 +118,10 @@ test('invalid matches are rejected with a message and change nothing', async t =
     ['no result', { ...base, result: undefined }, 400],
     ['negative score', { ...base, result: { scores: scores(-1, 2) } }, 400],
     ['fractional score', { ...base, result: { scores: scores(2.5, 1) } }, 400],
+    ['huge score', { ...base, result: { scores: scores(1e300, 1) } }, 400],
+    ['unsafe integer score', { ...base, result: { scores: scores(2 ** 53, 1) } }, 400],
+    ['score above the cap', { ...base, result: { scores: scores(MAX_SCORE + 1, 1) } }, 400],
+    ['Infinity (1e999 in JSON text)', null, 400],
     ['string score', { ...base, result: { scores: scores('2', 1) } }, 400],
     ['null score', { ...base, result: { scores: scores(null, 1) } }, 400],
     ['score for a third player', { ...base, result: { scores: { [A]: 2, [B]: 1, [cem.id]: 0 } } }, 400],
@@ -126,11 +136,25 @@ test('invalid matches are rejected with a message and change nothing', async t =
     ['merry-go-round not recordable here', { ...base, mode: 'merry-go-round' }, 400],
   ];
   for (const [label, body, status] of attempts) {
-    const before = await bad(body, status)().catch(e => { e.message = `${label}: ${e.message}`; throw e; });
-    assert.equal(JSON.stringify([await c.get('/api/players'), await c.get('/api/matches')]), before, label);
+    await rejected(c, () => c.post('/api/matches', body ?? JSON.stringify(base).replace(/:2\b/, ':1e999')), status, label);
   }
   assert.deepEqual(await c.get('/api/matches'), []);
   assert.equal((await c.post('/api/matches', base)).status, 201);
+  // the cap itself is accepted
+  assert.equal((await c.post('/api/matches', { ...base, result: { scores: scores(MAX_SCORE, 0) } })).status, 201);
+});
+
+test('DATA_DIR guard: inside the repo is refused, sibling names starting with ".." are not', () => {
+  const root = '/srv/app/';
+  assert.equal(isInsideDir(root, '/srv/app'), true);
+  assert.equal(isInsideDir(root, '/srv/app/data'), true);
+  assert.equal(isInsideDir(root, '/srv/app/..x'), true);
+  assert.equal(isInsideDir(root, '/srv/app/..x/store'), true);
+  assert.equal(isInsideDir(root, '/srv/data'), false);
+  assert.equal(isInsideDir(root, '/srv/app-data'), false);
+  assert.equal(isInsideDir(root, '/srv'), false);
+  assert.equal(isInsideDir('/srv/app/', '/srv/..x'), false);
+  assert.equal(isInsideDir('/srv/', '/srv/..x'), true);
 });
 
 test('concurrent writes: different names both survive, identical names leave exactly one', async t => {
@@ -198,6 +222,19 @@ test('data boundary: store is not served, repo files stay 404, data is outside t
     const response = await fetch(c.origin + path);
     assert.equal(response.status, 404, path);
     assert.ok(!(await response.text()).includes('Anna'), path);
+  }
+  // raw request lines, sent without any client-side normalisation of ".."
+  const raw = path => new Promise((resolve, reject) => {
+    const { port } = new URL(c.origin);
+    http.get({ host: '127.0.0.1', port, path }, res => {
+      let text = ''; res.on('data', d => { text += d; }); res.on('end', () => resolve({ status: res.statusCode, text }));
+    }).on('error', reject);
+  });
+  for (const path of ['/../store.json', '/../server.mjs', '/public/../server.mjs', '/api/../package.json', '/api/players/../../server.mjs',
+    '/%2e%2e/server.mjs', '/..%2fserver.mjs', '/public/%2e%2e/lib/store.mjs', '/public/..\\server.mjs', '//etc/passwd']) {
+    const r = await raw(path);
+    assert.equal(r.status, 404, path);
+    assert.ok(!r.text.includes('Anna') && !r.text.includes('createServer'), path);
   }
   const repo = new URL('..', import.meta.url).pathname;
   assert.ok(!c.dir.startsWith(repo));
