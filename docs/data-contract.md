@@ -1,6 +1,10 @@
 # Data contract: players, matches and storage
 
-Status: proposed in step M1.2, base `82ebb23`. It becomes binding when both Niklas (ladder track) and Eric (fun track) accept the PR. Changing it afterwards needs both of them to agree.
+Status: step M1.2, base `82ebb23`. **Both humans accepted it on 2026-10-20** — Niklas (ladder
+track) and Eric (fun track) — so it becomes binding when this PR merges. Changing it afterwards
+needs both of them to agree. The questions that were still open when it was written are
+answered in section 9; the ones that are still open are listed there too, each with the
+default the text uses.
 
 This document states requirements and record shapes. It does not choose a library or database engine. The JSON shown is the logical shape; M1.3 decides how it is stored, as long as every rule below holds.
 
@@ -73,7 +77,7 @@ For multi-player matches (`merry-go-round`):
 | `reported` | A final result has been entered and awaits confirmation (where required). |
 | `confirmed` | Final. Counts for history, and for ratings if `ranked`. |
 | `disputed` | The confirmer (the participant who did not report) says the reported result is wrong. Never counts. |
-| `declined` | The invitee refused. Final. Records no result. |
+| `declined` | The invitee refused. Final. Records no result, and **never counts as a played match**: it is not shown in the played-match list (M3.1 decides the UI; the record itself is kept as history). |
 | `cancelled` | Withdrawn before a result was reported. Final. |
 
 Allowed transitions, and nothing else:
@@ -237,7 +241,10 @@ Anna invites Ben to a casual game. Created by `p_anna`, state `proposed`. Ben de
   "reportedAt": null, "confirmedAt": null }
 ```
 
-By the current default the record stays as history, has no result, and is final. Ratings are unchanged. Note: `.ai/team/eric.md` says "a declined invite records no match"; see open question Q10. (Whether declined invites are shown in lists is a UI choice for M3.1.)
+The record stays as history, has no result, and is final. Ratings are unchanged. A declined
+invite **never counts as a played match**: M3.1 hides declined matches from the played-match
+list, so it leaves no trace in the match history a player reads (decided by Eric, 2026-10-20,
+Q10). `.ai/team/eric.md` was reworded to match.
 
 ### 8.3 Merry-go-round with 3 players
 
@@ -264,12 +271,15 @@ Placings: 1st Anna, 2nd Ben, 3rd Cem. No rating changes. Recording Cem as elimin
 - **Q6.** Tournament matches are `ranked` and change Elo once confirmed.
 - **Q8.** A ranked score is games won in a best-of match (for example 2-1), not points within one game.
 
+### Decided (Eric, fun track, 2026-10-20)
+
+- **Q1 (rest). Renaming and "me".** The default is kept: a player **may rename themselves** (the name rules and the uniqueness rule still apply), and **anyone may pick any existing player** as "me" — the honour system of section 3. This is what makes picking yourself on a phone work.
+- **Q2. Casual and fun confirmation.** **No confirmation.** The report is final for `casual` and for fun modes; the opponent does not have to agree. Casual and fun matches never change ratings, so a second confirmation would only add friction next to the table. Only `ranked` needs the non-reporter to confirm.
+- **Q7. Meaning of "invite".** "Invite" means inviting another player **inside our own app**, not integrating with 42 intra. The 42 intra login stays the later step M5.1, and this contract is already shaped for it (`externalLogin`).
+- **Q10. Declined invites.** The `declined` record is **kept** (the default in this contract): it has no result, it never counts as a played match, and M3.1 hides declined matches from the played-match list. `.ai/team/eric.md` was reworded from "a declined invite records no match" to "a declined invite has no result and does not count as a played match".
+
 ### Open (NOT decided; the text above uses the stated default so work can proceed)
 
-- **Q1 (rest). Renaming and "me".** May a player rename themselves, and may anyone pick any existing player as "me"? Default: renaming allowed (name rules and uniqueness still apply); anyone may pick anyone (honour system). Niklas and Eric.
-- **Q2. Casual and fun confirmation.** Default: no confirmation, the report is final. Alternative: the opponent confirms casual results too. Eric decides.
-- **Q3. Stale matches.** A `reported` ranked result never confirmed, or a `proposed` match nobody answers, stays open forever by default. Should it time out, or may either player cancel it?
+- **Q3. Stale matches.** A `reported` ranked result never confirmed, or a `proposed` match nobody answers, stays open forever by default. Should it time out, or may either player cancel it? Niklas decides.
 - **Q5. Cancel and dispute limits for ranked.** Default: either participant may cancel before a result is reported or after a dispute, and dispute/correct rounds are unlimited. Niklas decides.
-- **Q7. Meaning of "invite".** IDEA.md assumes "invite" means inviting inside our own app, not 42 intra integration. Eric confirms.
 - **Q9. Data location variable.** Is `DATA_DIR` the agreed name, and is `~/.local/share/vibecode-workshop/data/` writable by the app user on the guest (M1.1 evidence)? M1.3 verifies.
-- **Q10. Declined invites (Eric).** `.ai/team/eric.md` says "A declined invite records no match". Current default in this contract: a declined casual invite is kept as a match record with `state: "declined"` (example 8.2), with no result, never in ratings. Alternative: no record at all, or a record hidden from match history and counts. If Eric picks the alternative, section 2 and example 8.2 change; if he keeps the default, eric.md's acceptance case must be reworded to "a declined invite has no result and does not count as a played match".

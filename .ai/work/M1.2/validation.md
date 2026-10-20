@@ -26,5 +26,28 @@
 
 ## Known limitations
 
-- Open: Q1 (rename), Q2, Q3, Q5, Q7, Q9, Q10.
+- Open: Q3, Q5, Q9.
 - Elo formula is deferred to M2.1; only the 1016/984 check is fixed.
+
+## Eric's answers (Eric, fun track, 2026-10-20)
+
+Eric answered the four questions the contract left to the fun track. They are now recorded in
+section 9 of the contract as decided, and the text they touch was updated with them:
+
+| Question | Answer | Effect on the document |
+|---|---|---|
+| **Q1 (rest)** renaming and "me" | Keep the default: renaming is allowed (name rules and uniqueness still apply) and anyone may pick any existing player as "me" — the honour system of section 3. | §9 moved to decided. No other section changes. |
+| **Q2** casual and fun confirmation | No confirmation. The report is final for `casual` and fun modes; only `ranked` needs the non-reporter to confirm. | §9 moved to decided. The transition table already had `reported` → `confirmed` happening at the same moment as the report. |
+| **Q7** meaning of "invite" | Inside our own app, not 42 intra. 42 intra login stays M5.1. | §9 moved to decided. `externalLogin` in section 1 already reserves the slot. |
+| **Q10** declined invites | Keep the `declined` record, but it never counts as a played match: M3.1 hides declined matches from the played-match list. | The `declined` state in section 2, example 8.2 and `.ai/team/eric.md` were reworded to match. Section 2's transition table did not change. |
+
+Still open after these answers: **Q3** and **Q5** (Niklas's), **Q9** (M1.3 verifies the data
+location on the guest).
+
+### Checks run after Eric's answers
+
+- Re-read of the changed passages (`declined` in section 2, example 8.2, section 9) against the
+  state table, the failure cases and `.ai/team/eric.md`.
+- No code changed, so no test run applies.
+- The head SHA of this commit cannot name itself; it is recorded in the review file and in the
+  PR body.
