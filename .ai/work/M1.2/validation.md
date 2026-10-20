@@ -16,10 +16,13 @@ behaviour changed, so no journey was exercised. Connection details are left out 
 
 ## Review rounds
 
+Base SHA: `82ebb23` (`main`). Reviewed head SHAs: `e52fa1a` (round 1) and `e8bac46` (round 2).
+
 | Round | Reviewer | Head SHA | Verdict |
 |---|---|---|---|
 | 1 | opencode subagent, deepseek-v4.1-flash-free | `e52fa1a` | REQUEST CHANGES — 1 blocker, 7 major, 9 minor, 4 nit |
-| 2 | opencode subagent, deepseek-v4.1-flash-free | see the table below | see `.ai/work/M1.2/review.md` |
+| 2 | opencode subagent, deepseek-v4.1-flash-free | `e8bac46` | REQUEST CHANGES — 3 major, 8 minor/nit |
+| 3 | opencode subagent, deepseek-v4.1-flash-free | the fix commit | see `.ai/work/M1.2/review.md` |
 
 Round 1 findings and what changed in the document:
 
@@ -65,6 +68,43 @@ Round 1 findings and what changed in the document:
   by `confirmedAt` then match id (§2, §5).
 - **Nit** — §9 rule 7 was stricter than the platform contract. Fixed: `0.0.0.0` **or**
   `127.0.0.1` (§9).
+
+### Round 2 findings and what changed
+
+Round 2 re-checked all 21 round-1 findings against the revised document (17 FIXED, 4 PARTIALLY
+FIXED) and found new issues. What changed in this revision:
+
+- **Major** — the merry-go-round summary match violated §2's own winner/score rules. Fixed:
+  §2 states the score exception for that mode explicitly, and §4 states that the summary
+  match's `playerIds` are the round's participants.
+- **Major** — a ranked match could never exist in `proposed`, and the diagram did not show the
+  real entry. Fixed: the ranked match is created already `reported`, the diagram shows that
+  entry, and §2 states that the ranked queue pairing is **not** a match, so the ladder track
+  creates ranked matches through the create route.
+- **Major** — no persistence seam for invites, rounds, queue entries or tournaments. Fixed:
+  §6 now names the collections and gives the generic store API (`list`, `insert`, `find`,
+  `update`, `remove`, `newId`), so a track adds a collection without editing `src/store.mjs`.
+- **Minor** — an invite did not store the id of the match it created, and a round did not
+  store the id of its summary match. Fixed: both records have a `matchId` field.
+- **Minor** — the change rule cited "AGENTS.md rule 7" for joint ownership, which is the PR
+  rule. Fixed: the citation is now `.ai/team/niklas.md` and `.ai/team/eric.md`.
+- **Minor** — some route rows had no precondition, resulting state or refusal code. Fixed:
+  every row in §7 now names them, including `403` for a wrong actor and `409` for a wrong
+  state.
+- **Minor** — the evidence named no reviewed head SHA and pointed at a review file that was
+  not in the branch. Fixed: base and head SHAs are stated here and `.ai/work/M1.2/review.md`
+  is committed.
+- **Minor** — how a per-view stylesheet is loaded was unspecified, and the starter serves only
+  hard-coded assets. Fixed: §8 states that the core serves `public/views/*` and that each
+  view module injects its own `<link>`.
+- **Minor** — `recomputeRatings(store)` was under-specified and its ownership muddled.
+  Fixed: §5 gives the exact signature and behaviour, and says M1.3 creates the no-op while
+  M2.1 replaces the file.
+- **Nit** — the default data directory used a literal `~`. Fixed: §6 says it is resolved with
+  `os.homedir()` and that the app fails loudly at boot if it cannot be resolved, because the
+  deployed unit's working directory is the release directory.
+- **Nit** — the shape of an empty list was unspecified. Fixed: §7 says an empty collection is
+  `{"ok": true, "players": []}`, not an error.
 
 ## Not verified
 

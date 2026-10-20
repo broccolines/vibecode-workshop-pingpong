@@ -8,8 +8,9 @@ system stores refers to a stable internal id. That is what lets 42 intra login b
 later (M5.1) without rewriting matches or ratings.
 
 **Change rule.** After M1.3 merges, changing this document is a **new step ID agreed by both
-humans** (AGENTS.md rule 2: append new IDs, never renumber; and AGENTS.md rule 7: the shared
-format is jointly owned). Never a quiet edit inside a track branch.
+humans** (AGENTS.md rule 2: append new IDs, never renumber). The shared format is jointly
+owned — see `.ai/team/niklas.md` and `.ai/team/eric.md` — so neither track may change it
+alone. Never a quiet edit inside a track branch.
 
 ---
 
@@ -36,7 +37,7 @@ Rules:
 | `playerIds` | string[] | Player ids. **Exactly 2** for `ranked` and `casual`; **3 or more** only for `merry-go-round`, and a merry-go-round match is created by the round route (§4), never by the create route. No duplicates; all ids must exist. |
 | `state` | enum | `proposed`, `reported`, `confirmed`, `disputed`. |
 | `winnerId` | string or null | Required when a score is reported. Must be one of `playerIds`. Must be the **unique** player with the most games won. A tied score is refused. |
-| `score` | object or null | `playerId → games won`. Its keys are **exactly** `playerIds`. `null` only while the match is `proposed`. |
+| `score` | object or null | `playerId → games won`. For `ranked` and `casual` its keys are **exactly** `playerIds`, and it may be `null` only while the match is `proposed`. **Exception:** a `merry-go-round` match carries **no score at all** — its `score` is always `null` and its placings live in the round (§4). |
 | `reportedBy` | string or null | The acting player who reported the result. `null` until a report happens. |
 | `confirmedAt` | ISO 8601 UTC string or null | Set when the match becomes `confirmed`. This is the replay order for rating derivation (§5). |
 | `createdAt`, `updatedAt` | ISO 8601 UTC string | All timestamps are UTC. |
@@ -45,11 +46,13 @@ Rules:
 
 ```
 ranked (exactly two players)
-    proposed ──(winner reports)──▶ reported ──(loser confirms)──▶ confirmed
-                                            └─(loser disputes)──▶ disputed
+    created by POST /api/matches in state `reported`
+    reported ──(loser confirms)──▶ confirmed
+            └─(loser disputes)──▶ disputed
 
 casual (exactly two players)
-    proposed ──(winner reports)──▶ confirmed
+    created by POST /api/matches in state `confirmed`
+    (or by an accepted invite: proposed ──(winner reports)──▶ confirmed)
 
 merry-go-round (three or more players)
     created by the round route in state `confirmed`; it is a summary record only
@@ -62,7 +65,11 @@ merry-go-round (three or more players)
   result (PLAN.md M2.3 and `.ai/team/niklas.md`). For **casual** the report is stored as
   `confirmed` immediately: there is no dispute step, because it would change nothing —
   casual never feeds ratings.
-- A match reaches `proposed` only through an accepted invite (§3).
+- A **casual** match reaches `proposed` only through an accepted invite (§3). A **ranked**
+  match never sits in `proposed`: it is created already `reported`, because the ranked queue
+  pairing (M2.2) is **not** a match — it is a pairing of two waiting players, and the match
+  exists only once somebody reports a result. The ladder track therefore creates ranked
+  matches through `POST /api/matches` and never needs a `proposed` ranked match.
 
 ### Who may report and who must confirm
 
@@ -84,6 +91,7 @@ Used by the fun track for casual matches (M3.1).
 | `fromPlayerId` | string | The inviter. |
 | `toPlayerId` | string | The invitee. Must exist and must differ from `fromPlayerId`. |
 | `state` | enum | `pending`, `accepted`, `declined`. |
+| `matchId` | string or null | The casual match created when the invite was accepted. `null` while `pending` or `declined`. |
 | `createdAt`, `updatedAt` | ISO 8601 UTC string | |
 
 Rules:
@@ -92,7 +100,8 @@ Rules:
 - Only the **invitee** may accept or decline. The inviter can do neither.
 - A declined invite stores no match.
 - Accepting an invite creates a `casual` match in state `proposed` with both players as
-  participants, `score: null`, `reportedBy: null`. The winner reports the score later (§7).
+  participants, `score: null`, `reportedBy: null`, and stores that match's id in `matchId`.
+  The winner reports the score later (§7).
 
 ## 4. Round (merry-go-round)
 
@@ -105,6 +114,7 @@ Used by the fun track (M3.3).
 | `state` | enum | `running`, `finished`. |
 | `eliminations` | string[] | Player ids in elimination order. A player may appear at most once. |
 | `winnerId` | string or null | The last player standing. Set when the round finishes. |
+| `matchId` | string or null | The summary match created when the round finished. `null` while `running`. |
 | `createdAt`, `updatedAt` | ISO 8601 UTC string | |
 
 Rules:
@@ -112,8 +122,11 @@ Rules:
 - Eliminating a player who is not in the round, an already eliminated player, or the last
   remaining player is refused and stores nothing.
 - When the round finishes, the round route creates **one** summary `merry-go-round` match in
-  state `confirmed` with `winnerId` = the round winner. The round route is the **only** writer
-  of that match; it can never be created or changed through the match routes (§7).
+  state `confirmed`, with `winnerId` = the round winner, `playerIds` = the round's
+  participants, `score: null` (the score exception in §2) and `reportedBy: null`. The round's
+  id is stored in that match's place nowhere else — the round stores it in `matchId`. The
+  round route is the **only** writer of that match; it can never be created or changed
+  through the match routes (§7).
 - A round never touches ratings.
 
 ## 5. Ratings (owned by the ladder track)
@@ -122,16 +135,29 @@ Rules:
 - Derived from **confirmed `ranked` matches only**. A disputed match never contributes.
 - `player.rating` is a **cache**, not the truth. The truth is the replay of the confirmed
   ranked match history. The replay order is `confirmedAt` ascending, ties broken by match id.
-- The shared core calls `recomputeRatings(store)` from `src/domain/ratings.mjs` after every
-  match write and once at boot. In M1.3 that file is a no-op shipped by the ladder track's
-  file slot, so every rating stays 1000. **M2.1 replaces that file** — that is the seam, and
-  it means M2.1 never has to edit frozen shared core.
+- The seam is one file, `src/domain/ratings.mjs`, with exactly this interface:
+
+  ```js
+  // export function recomputeRatings(store): void
+  // Mutates store.players[*].rating in place. Synchronous. Must not throw.
+  // Called by the shared core after every match write and once at boot.
+  // The core writes the store to disk after the call returns.
+  ```
+
+  **M1.3 creates the file as a no-op** (ratings stay 1000) because M1.3 owns the shared core.
+  **M2.1 replaces the file** with the real derivation — that is the ladder track's file from
+  the start, so M2.1 never edits frozen shared core.
 - The fun track **never** writes `player.rating`. Casual and merry-go-round results leave
   every rating exactly unchanged. This is a review checkpoint on every fun-track step.
 
 ## 6. Where the data lives
 
-- Directory: `process.env.DATA_DIR`, default `~/.local/share/vibecode-workshop/data/`.
+- Directory: `process.env.DATA_DIR`, or `path.join(os.homedir(), ".local/share/vibecode-workshop/data")`
+  when the variable is not set. The default is resolved with `os.homedir()`, **not** by
+  expanding a literal `~` in the current working directory — the deployed unit's working
+  directory is the release directory, and a relative path there would put the data inside the
+  release and lose it on the next deploy. If the home directory cannot be resolved, the app
+  **fails loudly at boot** instead of silently writing somewhere wrong.
 - One file: `store.json` in that directory.
 - **Never** inside a release directory, never inside the repository, never in git.
 - Loaded once at boot into memory, written back **atomically** (write a temporary file in the
@@ -142,6 +168,34 @@ Rules:
 - Ids are generated with a random 32-bit suffix; if an id already exists in the store, the
   store generates another one. Uniqueness is guaranteed by that check, not by the random
   draw alone.
+
+### Collections and the generic store API
+
+The store holds named collections. A track adds a **collection**, never a new file and never
+a new writer:
+
+| Collection | Records | Owner |
+|---|---|---|
+| `players` | §1 | M1 shared core |
+| `matches` | §2 | M1 shared core |
+| `invites` | §3 | M3 (Eric) |
+| `rounds` | §4 | M3 (Eric) |
+| `queueEntries` | M2 (Niklas) | M2 (Niklas) |
+| `tournaments` | M2 (Niklas) | M2 (Niklas) |
+
+`src/store.mjs` is generic over these collections, so a track that needs a new one does not
+edit the store module:
+
+```js
+list(collection)            -> array of records
+insert(collection, record)  -> the stored record
+find(collection, id)        -> the record or null
+update(collection, id, patch) -> the updated record
+remove(collection, id)      -> void
+```
+
+The store owns id generation and uniqueness (§1), timestamps and the atomic write. Domain
+modules own the rules; route modules own the HTTP shape.
 
 ## 7. HTTP surface
 
@@ -156,25 +210,27 @@ JSON over HTTP on the same server. **One envelope for every endpoint:**
 - Errors always contain `ok: false` and a human-readable `error`, with status `400` for a bad
   request, `404` for an unknown id and `409` for a state that does not allow the change.
 - **Every refused or invalid transition stores nothing** and returns the error shape.
+- An **empty collection is not an error**: `GET /api/players` with no players returns
+  `{"ok": true, "players": []}` with status 200. The client shows the empty state (§ M1.3).
 
 | Method | Path | Request body | Success payload | Notes |
 |---|---|---|---|---|
 | GET | `/api/health` | — | `{ok, revision}` | `{"ok": true, "revision": "..."}` — unchanged, deployment contract |
-| GET | `/api/players` | — | `{ok, players: [...]}` | |
-| POST | `/api/players` | `{name}` | `{ok, player}` | name 1–40 chars after trimming |
-| GET | `/api/matches` | — | `{ok, matches: [...]}` | newest first |
-| POST | `/api/matches` | `{mode, playerIds, winnerId, score, actor}` | `{ok, match}` | `mode` is `ranked` or `casual` only. Creates **and** reports in one call: a `ranked` match lands in `reported`, a `casual` match in `confirmed`. `merry-go-round` is refused here. |
-| GET | `/api/matches/:id` | — | `{ok, match}` | |
-| POST | `/api/matches/:id/report` | `{winnerId, score, actor}` | `{ok, match}` | The **report-on-existing-match** transition, used for a match that is `proposed` (an accepted invite). Same winner/score rules as §2. A `ranked` match reported this way lands in `reported`; a `casual` one in `confirmed`. |
-| POST | `/api/matches/:id/confirm` | `{actor}` | `{ok, match}` | Only the participant who did not report. Only from `reported`. |
-| POST | `/api/matches/:id/dispute` | `{actor}` | `{ok, match}` | Only the participant who did not report. Only from `reported`. |
-| GET | `/api/invites` | — | `{ok, invites: [...]}` | |
-| POST | `/api/invites` | `{toPlayerId, actor}` | `{ok, invite}` | |
-| POST | `/api/invites/:id/accept` | `{actor}` | `{ok, invite, match}` | The invitee only, only while `pending`. Creates the casual match in `proposed`. |
-| POST | `/api/invites/:id/decline` | `{actor}` | `{ok, invite}` | The invitee only, only while `pending`. Creates no match. |
-| GET | `/api/rounds` | — | `{ok, rounds: [...]}` | |
-| POST | `/api/rounds` | `{playerIds, actor}` | `{ok, round}` | 3 or more players. |
-| POST | `/api/rounds/:id/eliminate` | `{playerId, actor}` | `{ok, round}` | Creates the summary match when the round finishes. |
+| GET | `/api/players` | — | `{ok, players: [...]}` | empty list → `players: []` |
+| POST | `/api/players` | `{name}` | `{ok, player}` | name 1–40 chars after trimming; `400` otherwise. Duplicate names are allowed. |
+| GET | `/api/matches` | — | `{ok, matches: [...]}` | newest first; empty list → `matches: []` |
+| POST | `/api/matches` | `{mode, playerIds, winnerId, score, actor}` | `{ok, match}` | `mode` is `ranked` or `casual` only (`400` for `merry-go-round`). Exactly 2 distinct existing players. Creates **and** reports in one call: a `ranked` match lands in `reported`, a `casual` match in `confirmed`. The winner/score rules of §2 apply; a tie, a missing winner, a wrong score key set or an actor who is not a participant is `400` and stores nothing. |
+| GET | `/api/matches/:id` | — | `{ok, match}` | `404` if unknown |
+| POST | `/api/matches/:id/report` | `{winnerId, score, actor}` | `{ok, match}` | The **report-on-existing-match** transition, for a match that is `proposed` (an accepted invite). Only from `proposed` — a second report is `409`. The actor must be a participant and the winner by §2's rules; otherwise `400` and nothing is stored. A `casual` match lands in `confirmed`. |
+| POST | `/api/matches/:id/confirm` | `{actor}` | `{ok, match}` | Only the participant who did not report. Only from `reported`; otherwise `409`. |
+| POST | `/api/matches/:id/dispute` | `{actor}` | `{ok, match}` | Only the participant who did not report. Only from `reported`; otherwise `409`. |
+| GET | `/api/invites` | — | `{ok, invites: [...]}` | empty list → `invites: []` |
+| POST | `/api/invites` | `{toPlayerId, actor}` | `{ok, invite}` | The invitee must exist (`404` if not) and differ from the actor (`400`). A second pending invite from the same actor to the same player is `409`. Nothing is stored on refusal. |
+| POST | `/api/invites/:id/accept` | `{actor}` | `{ok, invite, match}` | The invitee only (`403` otherwise), only while `pending` (`409` otherwise). Creates the casual match in `proposed` and stores its id in `invite.matchId`. |
+| POST | `/api/invites/:id/decline` | `{actor}` | `{ok, invite}` | The invitee only (`403` otherwise), only while `pending` (`409` otherwise). Creates no match. |
+| GET | `/api/rounds` | — | `{ok, rounds: [...]}` | empty list → `rounds: []` |
+| POST | `/api/rounds` | `{playerIds, actor}` | `{ok, round}` | At least 3 distinct existing players (`400` otherwise). The actor must be one of them (`400`). The round starts `running` with `eliminations: []`, `winnerId: null`, `matchId: null`. |
+| POST | `/api/rounds/:id/eliminate` | `{playerId, actor}` | `{ok, round}` | The round must be `running` (`409` otherwise). The player must be in the round and not yet eliminated (`400` or `409`), and the last remaining player cannot be eliminated (`409`). Creates the summary match when the round finishes. |
 
 **Track prefixes** so the two tracks rarely touch the same file:
 ladder track owns `/api/queue`, `/api/tournaments`; fun track owns `/api/invites`,
@@ -209,15 +265,27 @@ boot and merges their `{method, path, handler}` lists. Adding a route file there
 **no edit to any shared file** — the most likely merge conflict disappears.
 
 **The shared call surface** (`src/domain.mjs`, frozen after M1.3) exports the functions a
-track may call: `listPlayers`, `createPlayer`, `listMatches`, `findMatch`, `createMatch`,
-`reportMatch`, `confirmMatch`, `disputeMatch`, plus the id and validation helpers. A track's
-own rules live in that track's own domain file (`src/domain/fun.mjs`, `src/domain/ladder.mjs`)
-and its own route file.
+track may call:
+
+- players and matches: `listPlayers`, `createPlayer`, `listMatches`, `findMatch`,
+  `createMatch`, `reportMatch`, `confirmMatch`, `disputeMatch`
+- storage: `list`, `insert`, `find`, `update`, `remove` over the collections in §6, plus
+  `newId` — so the fun track can persist invites and rounds, and the ladder track queue
+  entries and tournaments, **without editing `src/store.mjs`**
+- validation helpers shared by both tracks: the winner/score rules of §2, the participant
+  checks, and the id helpers
+
+A track's own rules live in that track's own domain file (`src/domain/fun.mjs`,
+`src/domain/ladder.mjs`) and its own route file.
+
+**Serving the views and their stylesheets.** The shared core serves `public/views/*` as static
+assets, and each view module injects **its own** `<link rel="stylesheet">` at runtime. A
+track therefore never edits `public/index.html` to add its styling — the only shared edit a
+track may make is **one** line in `public/app.js` to register its view.
 
 **Styling.** `public/style.css` holds base styling only. Each track styles its own screens in
-its own stylesheet (`public/views/fun.css`, `public/views/ladder.css`), loaded by the view
-module that needs it. A track may add **one** line to `public/app.js` (its view registration).
-Anything beyond that needs both humans.
+its own stylesheet (`public/views/fun.css`, `public/views/ladder.css`). Anything beyond that
+needs both humans.
 
 ## 9. Rules that must never break
 
