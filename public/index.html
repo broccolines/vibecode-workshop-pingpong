@@ -3,24 +3,47 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Your workshop starting point: one idea, one team, one useful live demo.">
-  <title>Your first live step · Vibecode workshop</title>
+  <meta name="description" content="Record table tennis matches between players.">
+  <title>Ping Pong Ladder</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header><a class="wordmark" href="/">VIBECODE<span> / WORKSHOP</span></a><span class="status">Starting point</span></header>
+  <header><a class="wordmark" href="/">PING PONG<span> / LADDER</span></a></header>
   <main>
-    <p class="eyebrow">01 / Make something useful</p>
-    <h1>An idea is a start.<br>A working demo is proof.</h1>
-    <p class="intro">Your app is running. Now pick one person, one problem and one action you can help them complete.</p>
-    <ol class="steps">
-      <li><span class="number">01</span><h2>Agree the goal.</h2><p>Write who it helps and what they can do. Challenge what you are assuming.</p></li>
-      <li><span class="number">02</span><h2>Build one step.</h2><p>Give the agent an outcome and cases to check. Keep the change small enough to review.</p></li>
-      <li><span class="number">03</span><h2>Watch it work.</h2><p>Review the change. Let someone try the task. Use what happens to choose your next step.</p></li>
-    </ol>
-    <a class="action" href="https://intra.land/vibecode">Open the workshop <span aria-hidden="true">↗</span></a>
-    <p class="next">Your next move: agree the first useful journey with your team.</p>
+    <h1>Record a match</h1>
+    <p id="hint" class="hint" aria-live="polite"></p>
+    <p id="message" class="message" role="status" hidden></p>
+
+    <section aria-labelledby="who">
+      <h2 id="who">1. Who are you?</h2>
+      <label for="me">Pick yourself</label>
+      <select id="me"></select>
+      <form id="player-form">
+        <label for="name">Or create a player</label>
+        <div class="row"><input id="name" maxlength="60" autocomplete="off" placeholder="Your name" required><button>Create player</button></div>
+      </form>
+    </section>
+
+    <section aria-labelledby="record" id="record-section">
+      <h2 id="record">2. Record a finished match</h2>
+      <form id="match-form">
+        <label for="opponent">Opponent</label>
+        <select id="opponent"></select>
+        <div class="row scores">
+          <div><label for="my-score">Your games won</label><input id="my-score" type="number" min="0" step="1" inputmode="numeric" required></div>
+          <div><label for="their-score">Their games won</label><input id="their-score" type="number" min="0" step="1" inputmode="numeric" required></div>
+        </div>
+        <button>Record match</button>
+      </form>
+    </section>
+
+    <section aria-labelledby="matches">
+      <h2 id="matches">Matches</h2>
+      <p id="empty-matches" class="hint" hidden>No matches yet.</p>
+      <ul id="match-list" class="matches"></ul>
+    </section>
   </main>
-  <footer><span>Plan small. Review honestly. Ship live.</span><a href="/api/health">Check this app</a></footer>
+  <footer><span>Honour system: nothing stops you picking someone else.</span><a href="/api/health">Check this app</a></footer>
+  <script src="/app.js"></script>
 </body>
 </html>

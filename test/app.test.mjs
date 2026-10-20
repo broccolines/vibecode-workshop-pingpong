@@ -1,9 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createApp } from '../server.mjs';
+import { Store } from '../lib/store.mjs';
 
 async function fixture(t) {
-  const app = createApp({ revision: 'test-revision' });
+  const store = await Store.open(await mkdtemp(join(tmpdir(), 'ladder-app-')));
+  const app = createApp({ revision: 'test-revision', store });
   await new Promise(resolve => app.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => { app.close(resolve); app.closeAllConnections(); }));
   return `http://127.0.0.1:${app.address().port}`;
@@ -35,7 +40,9 @@ test('HEAD has no body and unsupported writes are rejected', async t => {
   const head = await fetch(origin, { method: 'HEAD' });
   assert.equal(head.status, 200);
   assert.equal(await head.text(), '');
-  const post = await fetch(origin, { method: 'POST', body: 'data' });
-  assert.equal(post.status, 405);
-  assert.equal(post.headers.get('allow'), 'GET, HEAD');
+  for (const path of ['/', '/style.css', '/app.js', '/api/health']) {
+    const post = await fetch(origin + path, { method: 'POST', body: 'data' });
+    assert.equal(post.status, 405, path);
+    assert.equal(post.headers.get('allow'), 'GET, HEAD');
+  }
 });
