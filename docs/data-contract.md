@@ -17,7 +17,7 @@ Words: MUST and MUST NOT are binding. "Rejected" always means: the request fails
 
 **Name validation.** Leading and trailing whitespace is removed and runs of inner whitespace become one space. After that the name MUST be 1 to 30 characters, MUST NOT be empty or whitespace only, and MUST NOT contain control characters. Letters from any language, digits, punctuation and emoji are allowed. Anything else is rejected.
 
-**Duplicate names.** Two players MUST NOT share a display name, compared case-insensitively after the clean-up above (`Anna` and ` anna ` collide). Reason: with no login, the name is how people pick themselves and others on a phone; two identical names would make the ladder unreadable. Creating a player with a taken name is rejected. (Open question Q1.)
+**Duplicate names.** Two players MUST NOT share a display name, compared case-insensitively after the clean-up above (`Anna` and ` anna ` collide). Reason: with no login, the name is how people pick themselves and others on a phone; two identical names would make the ladder unreadable. Creating a player with a taken name is rejected. (Decided by Niklas, 2026-10-20, Q1. Renaming and picking "me" stay open in Q1.)
 
 **Not stored on the player:** rating, wins, losses, queue position. These are derived from matches or belong to track-specific records (section 5).
 
@@ -38,12 +38,12 @@ One record type for every mode. Ranked, casual and fun matches differ by `mode`,
 | `state` | string | See the state table below. |
 | `participants` | array of player IDs | 2 or more IDs, no duplicates, every ID an existing player. Order is the order given at creation and has no ranking meaning. `ranked` and `casual` have exactly 2. `merry-go-round` has 3 or more. |
 | `createdBy` | player ID | The player who created the match, or `null` when the server created it (for example the ranked queue pairing, M2.2). |
-| `result` | object or null | `null` until a result is reported. Shape below. |
+| `result` | object or null | `null` until a result is reported. Exception: a running multi-player round in state `accepted` holds a partial result (eliminations only, no `winner`). Shape below. |
 | `reportedBy` | player ID or null | Who reported the current result. |
 | `decidedBy` | player ID or null | Who made the latest accept, decline, cancel, confirm or dispute decision. |
 | `details` | object | Optional mode-specific extras. Starts as `{}`. Only the owning track (section 5) adds keys, and unknown keys MUST be preserved when a record is rewritten. |
 | `createdAt` | string | ISO 8601 UTC. |
-| `updatedAt` | string | ISO 8601 UTC, changed on every transition. |
+| `updatedAt` | string | ISO 8601 UTC, changed on every transition and on every appended elimination. |
 | `reportedAt`, `confirmedAt` | string or null | Set on the matching transition. `confirmedAt` is also what orders replay for Elo (section 5). |
 
 ### Result
@@ -54,7 +54,7 @@ For two-player matches (`ranked`, `casual`):
 { "scores": { "p_8f3k2": 2, "p_1a9xq": 1 } }
 ```
 
-`scores` has exactly one non-negative whole number per participant. The scores MUST NOT be equal: a match with no winner is rejected, because table tennis has no draw. The winner is the higher score and is not stored separately, so it cannot disagree with the scores. Games won (for example 2-1) is the default meaning; points per game are out of scope.
+`scores` has exactly one non-negative whole number per participant. The scores MUST NOT be equal: a match with no winner is rejected, because table tennis has no draw. The winner is the higher score and is not stored separately, so it cannot disagree with the scores. For ranked matches a score is the number of games won in a best-of match (for example 2-1), not points within one game (decided by Niklas, 2026-10-20, Q8). Points per game are out of scope.
 
 For multi-player matches (`merry-go-round`):
 
@@ -72,7 +72,7 @@ For multi-player matches (`merry-go-round`):
 | `accepted` | Agreed to be played (or running, for multi-player modes). |
 | `reported` | A final result has been entered and awaits confirmation (where required). |
 | `confirmed` | Final. Counts for history, and for ratings if `ranked`. |
-| `disputed` | The confirmer says the reported result is wrong. Never counts. |
+| `disputed` | The confirmer (the participant who did not report) says the reported result is wrong. Never counts. |
 | `declined` | The invitee refused. Final. Records no result. |
 | `cancelled` | Withdrawn before a result was reported. Final. |
 
@@ -80,16 +80,17 @@ Allowed transitions, and nothing else:
 
 | From | To | Applies to | Meaning |
 |---|---|---|---|
-| (new) | `proposed` | `ranked`, `casual` | Match created. |
+| (new) | `proposed` | `ranked` | Created by the server only (queue pairing, or tournament in M2.4); `createdBy` is `null`. |
+| (new) | `proposed` | `casual` | Invite created by a player. |
 | (new) | `accepted` | `merry-go-round` | Starter lists everyone at the table; no invitation step. |
 | `proposed` | `accepted` | `casual` | Invitee accepts. |
-| `proposed` | `reported` | `ranked` | A ranked match needs no acceptance (both players already agreed by queueing or by being named). |
+| `proposed` | `reported` | `ranked` | A ranked match needs no acceptance (the server created it from a queue pairing or a tournament, so both players already agreed). |
 | `proposed` | `declined` | `casual` | Invitee declines. |
-| `proposed`, `accepted` | `cancelled` | all | Creator withdraws before any result is reported. |
+| `proposed`, `accepted` | `cancelled` | all | Withdrawn before a final result is reported; who may do it is in section 3. A multi-player round with partial eliminations can still be cancelled by the starter until the winner is determined. |
 | `accepted` | `reported` | `casual`, `merry-go-round` | Final result entered. For merry-go-round, eliminations are first appended while the state stays `accepted`; the match moves to `reported` when the last remaining player is the winner. |
-| `reported` | `confirmed` | `ranked` | Confirmer agrees. |
+| `reported` | `confirmed` | `ranked` | The participant who did not report agrees. |
 | `reported` | `confirmed` | `casual`, `merry-go-round` | Happens at the same moment as reporting. No second person confirms (see Q2), but both `reportedAt` and `confirmedAt` are set. |
-| `reported` | `disputed` | `ranked` | Confirmer disagrees. |
+| `reported` | `disputed` | `ranked` | The participant who did not report disagrees. |
 | `disputed` | `reported` | `ranked` | A participant reports a corrected result, which needs confirming again. |
 | `disputed` | `cancelled` | `ranked` | Players give up. |
 
@@ -103,18 +104,19 @@ Every action is checked against the acting player. An acting player who does not
 
 | Action | `ranked` | `casual` | `merry-go-round` |
 |---|---|---|---|
-| Create | Either of the 2 participants, or the server (queue pairing). The creator MUST be a participant, unless `createdBy` is `null`. | The inviter, who MUST be one of the 2 participants and not the invitee. | The starter, who MUST be one of the participants. |
+| Create | Only the server (queue pairing, or tournament in M2.4); `createdBy` is `null`. A player cannot create a ranked match, not even against a named opponent; targeted games use casual invites (decided by Niklas, 2026-10-20, Q11). | The inviter, who MUST be one of the 2 participants and not the invitee. | The starter, who MUST be one of the participants. |
 | Accept | not needed | Only the invitee (the participant who is not `createdBy`). | not needed |
 | Decline | not applicable | Only the invitee. | not applicable |
-| Cancel | Either participant, before a result is reported (or after a dispute). | The inviter (the invitee declines instead). | The starter. |
+| Cancel | Either participant, before a result is reported (or after a dispute). Ranked matches have no creator, so this applies to both. | The inviter (the invitee declines instead). | The starter. |
 | Report result | Either participant. | Either participant. | Any participant may record the next elimination. The same player cannot be recorded twice. |
-| Confirm | Only the **loser** of the reported result. If the loser reported the result themselves, they confirm it themselves (they are admitting the loss). | Automatic with the report. | Automatic with the final report. |
-| Dispute | Only the loser, same person as the confirmer. | not applicable | not applicable |
+| Confirm | Only the participant who did **not** report (decided by Niklas, 2026-10-20, Q4). If the loser reports their own loss, the winner confirms. The reporter can never confirm their own report. | Automatic with the report. | Automatic with the final report. |
+| Dispute | Only the participant who did not report, same person as the confirmer. | not applicable | not applicable |
 | Report a correction after a dispute | Either participant. | not applicable | not applicable |
 
 Notes:
 
-- The rule "only the loser confirms" means a winner can never confirm their own win. A winner who reports still needs the loser to agree before ratings move.
+- The rule "the non-reporter confirms" means nobody confirms their own report. Whoever reports, the other participant must agree before ratings move.
+- After a dispute, whoever reports the correction is the reporter; the other participant confirms or disputes it.
 - The server MUST check the acting player against stored data, not against whatever the browser claims about itself.
 - A player who never confirms leaves the match in `reported` and the ratings unchanged. Whether stale matches expire is not decided here (Q3).
 
@@ -136,7 +138,7 @@ Owner means: the only track that may add or change the meaning of the item. The 
 | `mode = ranked`, its result, report/confirm/dispute rules | Niklas (ladder) |
 | Ratings, ladder, Elo replay | Niklas. Derived, never entered. |
 | Ranked queue (who is waiting) | Niklas. A separate record, not a match, until a pair is formed. |
-| Tournaments and brackets | Niklas. A tournament is a separate record that refers to match IDs; a bracket match is an ordinary `ranked` match unless both humans agree otherwise. Its record shape is defined in M2.4. |
+| Tournaments and brackets | Niklas. A tournament is a separate record that refers to match IDs; a bracket match is an ordinary `ranked` match: it counts as ranked and changes Elo once confirmed (decided by Niklas, 2026-10-20, Q6). Its record shape is defined in M2.4. |
 | `mode = casual`, invites, accept/decline | Eric (fun) |
 | `mode = merry-go-round` and later fun modes, their `eliminations` result and `details` keys | Eric (fun) |
 
@@ -156,7 +158,7 @@ Requirements:
 4. A crash or restart in the middle of a write leaves either the previous or the new state, never a corrupt file.
 5. Stored records are never edited by hand in the shared demo; fixes happen through the app or a written migration.
 6. Stored data may contain player names, so it is not served as a web asset and not committed to Git.
-7. Records carry enough to be read by a later version: unknown fields are preserved, and a stored `schemaVersion` (a number, starting at 1) lets M1.3 and later steps migrate.
+7. Records carry enough to be read by a later version: unknown fields are preserved, and a stored `schemaVersion` (a number, starting at 1) lets M1.3 and later steps migrate. It sits on every stored record (each player, each match), not once per store.
 
 Implementation choice (file, SQLite or other) is for M1.3. It must be explained there and has to satisfy requirement 3 in particular.
 
@@ -174,8 +176,9 @@ Every case below is rejected: a clear message, no record created or changed.
 | Result that names a player who is not a participant | Rejected. |
 | Elimination recorded twice for the same player, or for the winner after the round ended | Rejected. |
 | Confirm on a match that is already `confirmed` (second confirmation) | Rejected. The first confirmation and `confirmedAt` stay unchanged. |
-| Confirm or dispute by someone other than the loser; accept or decline by someone other than the invitee | Rejected. |
+| Confirm or dispute by the reporter or a non-participant; accept or decline by someone other than the invitee | Rejected. |
 | Any transition not in the section 2 table (for example report on a `declined` match, accept after `cancelled`) | Rejected. |
+| A client request to create a `ranked` match | Rejected. Only the server creates ranked matches. |
 | Unknown `mode` value on creation | Rejected. (Unknown modes already stored are shown but never changed.) |
 | Player name that is empty, too long, or already taken | Rejected. |
 | Acting player does not exist | Rejected. |
@@ -209,7 +212,7 @@ Anna wins 2-1 and reports (acting player `p_anna`). State becomes `reported`:
   "reportedAt": "2026-10-20T14:25:00.000Z", "confirmedAt": null }
 ```
 
-Ratings are still 1000 / 1000. Ben, the loser, confirms. If Anna tried to confirm, it would be rejected.
+Ratings are still 1000 / 1000. Ben, who did not report, confirms. If Anna tried to confirm her own report, it would be rejected. The same holds if Ben, the loser, had reported his own loss: then Anna (the winner, not the reporter) would confirm and Ben could not.
 
 ```json
 { "id": "m_001", "mode": "ranked", "state": "confirmed",
@@ -234,11 +237,11 @@ Anna invites Ben to a casual game. Created by `p_anna`, state `proposed`. Ben de
   "reportedAt": null, "confirmedAt": null }
 ```
 
-The record stays as history, has no result, and is final. Ratings are unchanged. (Whether declined invites are shown in lists is a UI choice for M3.1.)
+By the current default the record stays as history, has no result, and is final. Ratings are unchanged. Note: `.ai/team/eric.md` says "a declined invite records no match"; see open question Q10. (Whether declined invites are shown in lists is a UI choice for M3.1.)
 
 ### 8.3 Merry-go-round with 3 players
 
-Anna, Ben and Cem (`p_cem`) start a round; Anna starts it. State `accepted`, `result` `{ "eliminations": [] }`. Cem is eliminated first, then Ben. After the second elimination only Anna remains, so the match becomes `reported` and, per section 2, `confirmed` at once:
+Anna, Ben and Cem (`p_cem`) start a round; Anna starts it. State `accepted`, `result` `{ "eliminations": [] }`. Cem is eliminated first, then Ben (each elimination updates `updatedAt`). After the second elimination only Anna remains, so the match becomes `reported` and, per section 2, `confirmed` at once:
 
 ```json
 { "id": "m_003", "mode": "merry-go-round", "state": "confirmed",
@@ -251,16 +254,22 @@ Anna, Ben and Cem (`p_cem`) start a round; Anna starts it. State `accepted`, `re
 
 Placings: 1st Anna, 2nd Ben, 3rd Cem. No rating changes. Recording Cem as eliminated again is rejected.
 
-## 9. Open questions for the humans
+## 9. Decisions and open questions
 
-These are NOT decided; the text above uses the stated default so the work can proceed. Niklas and Eric answer them before accepting.
+### Decided (Niklas, ladder track, 2026-10-20)
 
-- **Q1. Unique names.** Default: no two players share a name (case-insensitive). Alternative: allow duplicates and tell them apart another way. Also: may a player rename themselves, and may anyone pick any existing player as "me"?
+- **Q1 (part).** Display names are unique, compared case-insensitively after trimming.
+- **Q4.** A reported ranked result is always confirmed by the participant who did not report. If the loser reports their own loss, the winner confirms.
+- **Q11.** Ranked matches are created only by queue pairing (or by a tournament, M2.4). There is no direct ranked challenge; targeted games go through casual invites.
+- **Q6.** Tournament matches are `ranked` and change Elo once confirmed.
+- **Q8.** A ranked score is games won in a best-of match (for example 2-1), not points within one game.
+
+### Open (NOT decided; the text above uses the stated default so work can proceed)
+
+- **Q1 (rest). Renaming and "me".** May a player rename themselves, and may anyone pick any existing player as "me"? Default: renaming allowed (name rules and uniqueness still apply); anyone may pick anyone (honour system). Niklas and Eric.
 - **Q2. Casual and fun confirmation.** Default: no confirmation, the report is final. Alternative: the opponent confirms casual results too. Eric decides.
 - **Q3. Stale matches.** A `reported` ranked result never confirmed, or a `proposed` match nobody answers, stays open forever by default. Should it time out, or may either player cancel it?
-- **Q4. Loser reports own loss.** Default: they confirm it themselves. Alternative: such a report counts as confirmed immediately, or the winner must confirm. (Niklas)
-- **Q5. Who may cancel a ranked match, and who may dispute twice.** Default: any participant, and unlimited dispute/correct rounds. Niklas decides.
-- **Q6. Tournament matches.** Default: ordinary `ranked` matches, so they affect Elo. Alternative: a separate mode. (Niklas, M2.4)
+- **Q5. Cancel and dispute limits for ranked.** Default: either participant may cancel before a result is reported or after a dispute, and dispute/correct rounds are unlimited. Niklas decides.
 - **Q7. Meaning of "invite".** IDEA.md assumes "invite" means inviting inside our own app, not 42 intra integration. Eric confirms.
-- **Q8. Score meaning.** Default: games won (2-1). Alternative: points in one game to 11. Affects what the form asks on the phone.
 - **Q9. Data location variable.** Is `DATA_DIR` the agreed name, and is `~/.local/share/vibecode-workshop/data/` writable by the app user on the guest (M1.1 evidence)? M1.3 verifies.
+- **Q10. Declined invites (Eric).** `.ai/team/eric.md` says "A declined invite records no match". Current default in this contract: a declined casual invite is kept as a match record with `state: "declined"` (example 8.2), with no result, never in ratings. Alternative: no record at all, or a record hidden from match history and counts. If Eric picks the alternative, section 2 and example 8.2 change; if he keeps the default, eric.md's acceptance case must be reworded to "a declined invite has no result and does not count as a played match".
