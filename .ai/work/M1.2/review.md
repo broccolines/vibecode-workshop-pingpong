@@ -1,7 +1,8 @@
 # M1.2 review
 
 Base SHA: 82ebb237da32c2910fc55fb960a301cd7a92b455
-Head SHA: 2739aff72a2b2b7572a953a4fd697d4ce66c2f06 (confirmed as the tip of `m1.2-data-contract` with `git rev-parse HEAD`)
+Head SHA: 2739aff72a2b2b7572a953a4fd697d4ce66c2f06 (confirmed as the tip of `m1.2-data-contract-v2` with `git rev-parse HEAD`)
+Branch and pull request: `m1.2-data-contract-v2`, PR #4 in `broccolines/vibecode-workshop-pingpong`. The branch `m1.2-data-contract` (PR #2) is a superseded parallel draft with different record shapes; it was closed and is kept as evidence only.
 Reviewer session/provider: Claude Code subagent, Opus (Claude model family; fresh session that did not write the change). The coder was also Claude (Sonnet), so this is not a cross-family review.
 Date: 2026-10-20
 
@@ -77,7 +78,21 @@ All four are wording changes to `docs/data-contract.md`, and possibly a note in 
 ## Round 2
 
 Base SHA: 82ebb237da32c2910fc55fb960a301cd7a92b455
-Head SHA: df0e3f1e7909c518bd37f539691b190dc212c58c (confirmed as the tip of `m1.2-data-contract` with `git rev-parse HEAD`). Previous head: 2739aff72a2b2b7572a953a4fd697d4ce66c2f06.
+Head SHA: df0e3f1e7909c518bd37f539691b190dc212c58c (confirmed as the tip of `m1.2-data-contract-v2` with `git rev-parse HEAD`). Previous head: 2739aff72a2b2b7572a953a4fd697d4ce66c2f06.
+
+## Round 3 — Eric's answers
+
+Head SHA: 73abba6a72c75da3c9b777e86fd150c307f0684d. Reviewer: opencode subagent,
+`deepseek-v4.1-flash-free` — a different model family from the Claude coder and reviewer, so
+this round is cross-family. Verdict: **REQUEST CHANGES** — one major and seven smaller
+findings, all about the amendment not being applied consistently. All of them are fixed in the
+commit after `73abba6`; the fixes are listed in `.ai/work/M1.2/validation.md`.
+
+## Round 4
+
+Head SHA: the commit after `73abba6` — recorded in `.ai/work/M1.2/validation.md` and in the
+PR body. Reviewer: opencode subagent, `deepseek-v4.1-flash-free`. Verdict: see the table at
+the bottom.
 Reviewer session/provider: Claude Code subagent, Opus (fresh session; not the coder). Same model family as the coder (Claude), so this is not a cross-family review.
 Date: 2026-10-20
 

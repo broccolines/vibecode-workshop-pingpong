@@ -8,7 +8,7 @@ A student joins the ranked queue, gets an opponent, plays at the table and sees 
 
 - **Elo ladder.** Ratings come from confirmed `ranked` matches only. Starting rating 1000, K-factor 32 (decided 2026-10-20). Ratings must be reproducible: replaying the confirmed match history gives the same ladder.
 - **Ranked queue.** Players join and leave the queue, and two waiting players are paired. You decide what happens to someone who waits alone, and whether pairing considers rating.
-- **Result confirmation.** The loser confirms or disputes a reported ranked result. A disputed result never changes ratings.
+- **Result confirmation.** The player who did **not** report confirms or disputes a reported ranked result — in practice the loser, since the winner reports (contract §3, Q4). A disputed result never changes ratings.
 - **Tournaments.** Single elimination first. An organiser creates one, players join, and results advance the bracket.
 
 ## You do not own

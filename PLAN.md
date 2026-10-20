@@ -65,7 +65,7 @@ Planned after M1.2 is agreed. Draft outcomes:
 |---|---|---|---|---|
 | M2.1 | Confirmed ranked matches update both players' Elo; the ladder page shows ranks | M1.3 | Niklas | draft |
 | M2.2 | A player joins the ranked queue and is paired with a waiting player; both see who to play | M2.1 | Niklas | draft |
-| M2.3 | The loser confirms or disputes a reported ranked result; only confirmed results change ratings | M2.1 | Niklas | draft |
+| M2.3 | The player who did not report confirms or disputes a reported ranked result (in practice the loser); only confirmed results change ratings | M2.1 | Niklas | draft |
 | M2.4 | An organiser creates a single-elimination tournament; results advance the bracket | M2.3 | Niklas | draft |
 
 ## M3 — Fun track (Eric)

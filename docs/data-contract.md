@@ -1,7 +1,9 @@
 # Data contract: players, matches and storage
 
-Status: step M1.2, base `82ebb23`. **Both humans accepted it on 2026-10-20** — Niklas (ladder
-track) and Eric (fun track) — so it becomes binding when this PR merges. Changing it afterwards
+Status: step M1.2, base `82ebb23`. **Niklas accepted the contract on 2026-10-20** (ladder
+track), and **Eric answered the four fun-track questions on 2026-10-20** (Q1 rest, Q2, Q7,
+Q10) — those answers are recorded in section 9. The document becomes binding when this PR
+merges. Changing it afterwards
 needs both of them to agree. The questions that were still open when it was written are
 answered in section 9; the ones that are still open are listed there too, each with the
 default the text uses.
@@ -21,7 +23,7 @@ Words: MUST and MUST NOT are binding. "Rejected" always means: the request fails
 
 **Name validation.** Leading and trailing whitespace is removed and runs of inner whitespace become one space. After that the name MUST be 1 to 30 characters, MUST NOT be empty or whitespace only, and MUST NOT contain control characters. Letters from any language, digits, punctuation and emoji are allowed. Anything else is rejected.
 
-**Duplicate names.** Two players MUST NOT share a display name, compared case-insensitively after the clean-up above (`Anna` and ` anna ` collide). Reason: with no login, the name is how people pick themselves and others on a phone; two identical names would make the ladder unreadable. Creating a player with a taken name is rejected. (Decided by Niklas, 2026-10-20, Q1. Renaming and picking "me" stay open in Q1.)
+**Duplicate names.** Two players MUST NOT share a display name, compared case-insensitively after the clean-up above (`Anna` and ` anna ` collide). Reason: with no login, the name is how people pick themselves and others on a phone; two identical names would make the ladder unreadable. Creating a player with a taken name is rejected. (Uniqueness decided by Niklas, 2026-10-20, Q1. Renaming is allowed and anyone may pick any existing player as "me", honour system — decided by Eric, 2026-10-20, Q1 rest; see section 9.)
 
 **Not stored on the player:** rating, wins, losses, queue position. These are derived from matches or belong to track-specific records (section 5).
 
@@ -77,7 +79,7 @@ For multi-player matches (`merry-go-round`):
 | `reported` | A final result has been entered and awaits confirmation (where required). |
 | `confirmed` | Final. Counts for history, and for ratings if `ranked`. |
 | `disputed` | The confirmer (the participant who did not report) says the reported result is wrong. Never counts. |
-| `declined` | The invitee refused. Final. Records no result, and **never counts as a played match**: it is not shown in the played-match list (M3.1 decides the UI; the record itself is kept as history). |
+| `declined` | The invitee refused. Final. Records no result, and **never counts as a played match**: it is not shown in the played-match list. The record itself is kept as history. (Decided by Eric, 2026-10-20, Q10; M3.1 implements the hiding.) |
 | `cancelled` | Withdrawn before a result was reported. Final. |
 
 Allowed transitions, and nothing else:
@@ -241,10 +243,10 @@ Anna invites Ben to a casual game. Created by `p_anna`, state `proposed`. Ben de
   "reportedAt": null, "confirmedAt": null }
 ```
 
-The record stays as history, has no result, and is final. Ratings are unchanged. A declined
-invite **never counts as a played match**: M3.1 hides declined matches from the played-match
-list, so it leaves no trace in the match history a player reads (decided by Eric, 2026-10-20,
-Q10). `.ai/team/eric.md` was reworded to match.
+The record is kept as history, has no result, and is final. Ratings are unchanged. A declined
+invite **never counts as a played match**: it does not appear in the played-match list that
+M3.1 shows to a player (decided by Eric, 2026-10-20, Q10; M3.1 implements the hiding).
+`.ai/team/eric.md` was reworded to match.
 
 ### 8.3 Merry-go-round with 3 players
 
@@ -282,4 +284,4 @@ Placings: 1st Anna, 2nd Ben, 3rd Cem. No rating changes. Recording Cem as elimin
 
 - **Q3. Stale matches.** A `reported` ranked result never confirmed, or a `proposed` match nobody answers, stays open forever by default. Should it time out, or may either player cancel it? Niklas decides.
 - **Q5. Cancel and dispute limits for ranked.** Default: either participant may cancel before a result is reported or after a dispute, and dispute/correct rounds are unlimited. Niklas decides.
-- **Q9. Data location variable.** Is `DATA_DIR` the agreed name, and is `~/.local/share/vibecode-workshop/data/` writable by the app user on the guest (M1.1 evidence)? M1.3 verifies.
+- **Q9. Data location variable.** Is `DATA_DIR` the agreed name, and is `~/.local/share/vibecode-workshop/data/` writable by the app user on the guest (M1.1 evidence)? M1.3 verifies. Default: `DATA_DIR` overrides `~/.local/share/vibecode-workshop/data/`, the default is resolved with `os.homedir()`, and the app fails visibly if the location cannot be created or written (section 6, requirement 1).

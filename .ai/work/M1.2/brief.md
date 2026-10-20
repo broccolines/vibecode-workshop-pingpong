@@ -34,7 +34,10 @@ The document must answer each point below, and each answer must be checkable by 
 ## Handoff
 
 - Human owners: Niklas and Eric. Both must accept the PR. Eric's acceptance is the cross-review.
-- Coder: `coder` subagent (Sonnet), branch `m1.2-data-contract` from `82ebb23`.
+- Coder: `coder` subagent (Sonnet), branch `m1.2-data-contract-v2` from `82ebb23`.
+- The pull request is #4 in `broccolines/vibecode-workshop-pingpong`. The branch
+  `m1.2-data-contract` is a **superseded parallel draft** (PR #2, closed): different record
+  shapes, so the two cannot be merged. Do not merge that one.
 - Reviewer: `reviewer` subagent (Opus), fresh context.
 - Committer: `committer` subagent. It opens the PR in `broccolines/vibecode-workshop-pingpong` and merges only after both humans accept.
 - Evidence: `.ai/work/M1.2/validation.md` and `.ai/work/M1.2/review.md`.

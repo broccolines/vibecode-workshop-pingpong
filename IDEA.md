@@ -21,4 +21,4 @@
 - **What remains an assumption that we need to test?**
   - Players will report results honestly if the opponent has to confirm them.
   - People are physically near the table when the queue pairs them.
-  - "Invite in the intraland infrastructure" means inviting another player inside our app, which runs at our workshop URL on `*.intra.land`. It does not mean integrating with the 42 intra. **Confirm with Eric.**
+  - "Invite in the intraland infrastructure" means inviting another player inside our app, which runs at our workshop URL on `*.intra.land`. It does not mean integrating with the 42 intra. **Confirmed by Eric on 2026-10-20** (contract §9, Q7); 42 intra login stays the later step M5.1.
