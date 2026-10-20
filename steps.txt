@@ -1,0 +1,513 @@
+PING-PONG LADDER — STEP PLAN, TASK ASSIGNMENT AND CONTEXT WINDOWS
+Companion to PLAN.md (what we build) and AGENTS.md (how we work).
+Written by the project lead on 2026-10-20.
+
+WHICH DOCUMENT WINS
+  PLAN.md wins on every outcome, dependency and step state.
+  AGENTS.md wins on every rule.
+  docs/agent-routing.md wins on routing; this file is its plain-text MIRROR for
+  quick reference. Where the two disagree, docs/agent-routing.md wins.
+  The M2 and M3 tables below restate PLAN.md's outcome and dependency columns as
+  a mirror; PLAN.md wins there too.
+
+====================================================================
+0. HOW TO READ THIS FILE
+====================================================================
+Milestone  = a group of steps owned by one milestone lead (M1, M2, M3, M4).
+Step       = one branch, one reviewable PR, one permanent ID (M1.1, M2.3, ...).
+Session    = one agent conversation with one job. Sessions are cheap, roles are not.
+CX-n       = a context packet: the exact files and facts a session may read.
+Gate       = the check that must pass before the next session starts.
+
+"Context window" is used in two senses, and both matter:
+  (1) information scope — which files, SHAs and facts a session may see. This keeps
+      reviews independent and stops coders from wandering into the other track.
+  (2) model budget — which model/provider each role gets. The reviewer and the partner
+      check get the strongest reasoning, because they are the only ones allowed to doubt.
+
+====================================================================
+1. AUDIT OF THE STARTING STATE (facts, checked 2026-10-20)
+====================================================================
+[FACT] main == origin/main at 82ebb23 "created plan"; working tree clean.
+       -> The plan docs went straight to main without a PR. Docs only, no code, so no
+          code review was skipped, but AGENTS.md rule 7 wants PRs. This routing plan
+          goes through a PR.
+
+[FACT] The app is the untouched static starter: server.mjs serves public/index.html,
+       /style.css and /api/health; every other method returns 405.
+       -> There is NO data layer, NO API, NO persistence. M1.3 onward is greenfield.
+
+[FACT] No docs/data-contract.md and no .ai/work/ directory exist yet.
+       -> M1.2 and every step brief start from nothing.
+
+[FACT] npm test -> 21 passed, 0 failed locally.
+       -> Green baseline. Deploy refuses to switch a release when tests fail.
+
+[FACT] Local Node is v20.11.1 while package.json requires >= 22.
+       -> The starter validation already hit this trap. Every session must run Node 22
+          explicitly (npx -y node@22 --test or the validated Node 22 binary) and state
+          the runtime in validation.md.
+
+[FACT] `gh` (GitHub CLI) is NOT installed on this laptop.
+       -> The committer cannot open or merge PRs as written. Install it, or agree the
+          manual web-UI fallback with the human.
+
+[FACT] No team handout (team-NN.md) in the repo, by design.
+       -> M1.1 needs the human to put the SSH command, port, known-hosts path and public
+          URL into .workshop.local.md (git-ignored). Private details never enter a commit.
+
+[FACT] Data must live outside the release directories.
+       -> Target ~/.local/share/vibecode-workshop/data/. Not the release folder, not the repo.
+
+[FACT] The starter has zero dependencies.
+       -> npm ci is instant and the 2 GB build scope never bites. This is an asset, see D1.
+
+====================================================================
+2. MILESTONE MAP, GATES AND THE ORDERING RULE
+====================================================================
+
+   M1.1 --> M1.2 --> M1.3 --> M1.4 --+--> M2.1 --> M2.2 --> M2.3 --> M2.4 --+
+                    (joint, one lead)  |                                         |--> M4
+                                    +--> M3.1 --> M3.2                      |
+                                        M3.3 --> M3.4                      |
+
+G0  live                Assigned HTTPS URL reachable, /api/health reports the
+                        intended revision, teammate opens it on a phone.   blocks M1.2
+G1  contract frozen     docs/data-contract.md reviewed by both humans, shared
+                        storage and API surface decided and committed.
+                                                                blocks M2.1, M3.1, M3.3
+G2  first record        M1.3 merged: two players, a recorded result that survives
+                        reload, a second visitor and an app restart.
+                                                                blocks M2.1, M3.1, M3.3
+G3  milestone accepted  Both humans completed the journey on phones at the live
+                        URL, on the SHA that M1.4 was run against.
+                                                          blocks the final M1 release
+G4  contract window     After G2, changing the shared format needs both humans
+    closed              and a NEW step ID (e.g. M1.5), never a quiet edit inside
+                        a track branch.                             blocks both tracks
+
+Ordering rule inside M2/M3: the two tracks share main and the shared core. ONE step is
+merged at a time; the second track waits, rebases and re-verifies. Details in section 6.
+
+Nothing starts before its gate. If a dependency has not merged, the milestone lead stops
+and reports the blocker instead of inventing a workaround.
+
+====================================================================
+3. CONTEXT PACKETS
+====================================================================
+Every packet lists what a session MAY read, what it MUST NOT read, and roughly how much.
+
+--- CX-0  Shared rules (every session) -------------------------------------
+READ:   AGENTS.md (incl. the framework replacement contract), IDEA.md, PLAN.md,
+        .ai/rules.md, .ai/pitfalls.md, the one role card .ai/roles/<role>.md
+WHY:    every AGENTS.md rule overrides the agent's defaults; the deployment
+        contract is easy to break by accident. AGENTS.md line 3 requires every
+        session to read IDEA.md, PLAN.md, .ai/rules.md and its role brief.
+        NO PACKET MAY NARROW THAT. A packet may add reading, never remove it.
+SIZE:   small, always
+
+--- CX-1  Plan layer (milestone leads only) -------------------------------
+READ:   CX-0 + IDEA.md, PLAN.md, .ai/context.md, .ai/team/<owner>.md,
+        docs/workflow.md, docs/agents.md, docs/data-contract.md (once it exists)
+PURPOSE: only a milestone lead sees the whole roadmap, because only it resolves
+        routine questions instead of escalating them to the human
+NOT:    do not treat PLAN.md as a script to execute without checking the real state
+
+--- CX-2  Step context (coder) ---------------------------------------------
+READ:   CX-0 in full (including IDEA.md and PLAN.md) + .ai/work/<STEP>/brief.md
+        + the files the brief names + docs/data-contract.md + the base SHA's tree
+GIVEN IN THE DISPATCH PROMPT: step ID, brief path, branch name, base SHA,
+        dependency SHAs, and whatever the brief deliberately leaves out
+NOT:    the other track's briefs, the reviewer's expectations, the milestone lead's
+        opinions about future steps, any "while you are there" wish
+SIZE TARGET: under ~12k tokens of reading. If the coder needs more, the brief is too
+        big: split the step, do not widen the window.
+
+--- CX-3  Review context (reviewer) ----------------------------------------
+READ:   CX-0 in full (including IDEA.md and PLAN.md) + .ai/work/<STEP>/brief.md
+        + docs/data-contract.md + .ai/work/<STEP>/validation.md
+        + git diff <base>..<head> (stat first, then targeted files)
+NOT:    the coder's chat reasoning, the milestone lead's narration, the plan for the
+        next step. The reviewer judges only what is committed.
+ALSO:  re-run the checks whose claimed result matters (npm test with Node 22) and, for
+        UI steps, start the app and walk the journey at desktop and phone widths
+VERDICT: APPROVE or REQUEST CHANGES, covering only the named head SHA
+
+--- CX-4  Commit context (committer) --------------------------------------
+READ:   CX-0 + .ai/work/<STEP>/brief.md, validation.md, review.md +
+        .github/pull_request_template.md + the branch tip SHA
+NOT:    re-interpret the outcome, change implementation, or merge without both an
+        APPROVE and the human partner's acceptance
+
+--- CX-5  Partner check (the other human's own session) --------------------
+READ:   the PR diff + .ai/work/<STEP>/brief.md + the running app at the live URL
+        (or a local dev server running the same code)
+THREE QUESTIONS ONLY: does it deliver the outcome, did it touch unrelated work,
+        does it work on a phone next to the table?
+NOTE:   prefer a different provider/model family from the coder (AGENTS.md) and record
+        which provider actually ran it
+
+--- CX-6  Human-only ------------------------------------------------------
+Connection details from the organiser handout, assigned URL, SSH port, key path, the
+public URL, taste decisions, scope changes, release instructions. These live in
+.workshop.local.md and in the humans' heads: never in a commit, a brief, or a prompt
+pasted onto a shared screen.
+
+--- Model allocation per role ---------------------------------------------
+Coder            mid tier (Sonnet-class)   cheap iteration; the brief removes the
+                                            need for deep reasoning about scope
+Reviewer         strong tier (Opus-class)   the only agent allowed to block work;
+                                            different family preferred
+Partner check    other human's provider     cross-family independence; a human gate
+Committer        mid tier                   mechanical, auditable: SHA checks, PR,
+                                            merge, records
+Milestone lead   whatever the human has     judgement, not throughput
+Project lead     not in the loop per step   owns scope, taste and release only
+
+====================================================================
+4. DISPATCH PROMPTS (paste verbatim into a fresh session)
+====================================================================
+--- Milestone lead (the human opens it, in the owner's clone) ---------------
+Read AGENTS.md, .ai/roles/milestone-lead.md, docs/agent-routing.md and the step brief in
+.ai/work/<STEP>/. You are milestone lead for <MILESTONE>. Audit the real state first, then
+write .ai/work/<STEP>/brief.md from .ai/templates/brief.md with the real base SHA, the branch
+name and acceptance cases. Show it to the human and wait for the OK before dispatching anyone.
+
+--- Coder (dispatched by the milestone lead) -------------------------------
+Step <STEP>. Read AGENTS.md, .ai/roles/coder.md, .ai/work/<STEP>/brief.md and
+docs/data-contract.md if it exists. Branch <branch> from base SHA <sha>. Implement only the
+brief. Use Node 22 for every check. Run the checks that fit the risk, save actual results to
+.ai/work/<STEP>/validation.md with base and head SHA, commit, and report the exact head SHA.
+Do not merge, approve or push.
+
+--- Reviewer (dispatched after the coder returns) ---------------------------
+Step <STEP>, base <sha>, head <sha>. Read AGENTS.md, .ai/roles/reviewer.md,
+.ai/work/<STEP>/brief.md, .ai/work/<STEP>/validation.md and docs/data-contract.md. Review
+git diff <base>..<head> in full. Re-run the checks that matter, walk the browser journey for UI
+steps, write .ai/work/<STEP>/review.md with the template, and give APPROVE or REQUEST CHANGES.
+Do not edit implementation files. Do not merge.
+
+--- Committer, phase 1 (after APPROVE) -------------------------------------
+Step <STEP>, approved head SHA <sha>. Read AGENTS.md, .ai/roles/committer.md,
+.ai/work/<STEP>/{brief,validation,review}.md and docs/workflow.md. Confirm the branch tip is
+still <sha>. Commit review.md as a report-only commit and prove with git diff --stat that it
+touches only .ai/work/<STEP>/ — that is the check docs/workflow.md asks for. Record the new
+tip SHA (the report commit) as the merge target. Write pr.md from the PR template, push and
+open the PR in broccolines/vibecode-workshop-pingpong only. Return the PR link and both SHAs.
+Do not merge yet.
+
+--- Committer, phase 2 (after the partner accepted) ------------------------
+The partner accepted PR <link>. The reviewed implementation SHA was <sha>; the branch tip is
+the report-only commit <report-sha>. Verify that <report-sha> differs from <sha> only by
+files under .ai/work/<STEP>/ — if any implementation file changed, stop and ask for a
+re-review. Re-check CI (gh pr checks), merge into main in
+broccolines/vibecode-workshop-pingpong, then update the PLAN.md row, .ai/context.md and write
+.ai/sessions/<date>-<step>.md. Do not deploy.
+
+--- Partner check (the other human, own session, own provider) ------------
+Review PR <link> for step <STEP> against .ai/work/<STEP>/brief.md. Does it deliver the
+outcome, did it change unrelated work, does the journey work on a phone? Answer with accept or
+changes requested, plus the provider and model you used.
+
+====================================================================
+5. STEP-BY-STEP ASSIGNMENT
+====================================================================
+
+--- M1  Shared foundation (joint, one milestone lead) ----------------------
+Milestone lead: one fresh session, in the clone of the human who has GitHub CLI
+authenticated (the fork owner). Eric owns the CONTENT of M1.3; the milestone lead owns
+the PROCESS. Both humans gate every merge.
+
+M1.1  live starting point
+       sessions: milestone lead (brief) -> deployer session in the guest shell
+                 (CX-0 + CX-6 + docs/deploy.md) -> human gate: both humans open the
+                 URL on a phone
+       gate:   G0
+M1.2  shared format
+       sessions: milestone lead drafts docs/data-contract.md -> Niklas reviews ->
+                 Eric reviews -> committer merges the doc
+       gate:   G1
+M1.3  first recorded match
+       sessions: milestone lead (brief) -> coder (CX-2) -> reviewer (CX-3) ->
+                 committer phase 1 -> Niklas's session partner check (CX-5) ->
+                 committer phase 2
+       gate:   G2
+M1.4  journey on phones
+       sessions: both humans, no agents; observed problems become new step IDs
+       gate:   G3
+
+M1.1 -- details
+  No code changes. The deployer session runs `npm run deploy` on the guest as vc-team,
+  then `npm run smoke -- https://<assigned-url>` FROM A LAPTOP: the guest cannot call its
+  own public URL because Cloudflare challenges the datacenter IP (AGENTS.md rule 6).
+  Evidence: health JSON, git rev-parse HEAD on the guest, smoke output, phone
+  screenshot, written to .ai/work/M1.1/validation.md.
+  WHERE THE EVIDENCE LIVES: M1.1 still uses the normal step machinery — the evidence
+  sits on the step branch m1.1-live-url in .ai/work/M1.1/, and the committer merges that
+  branch through a PR in the fork. A deploy step has no coder commit, but it still has a
+  branch and a PR, so the PLAN.md "State / PR" column can be filled like any other step.
+  BLOCKER 1: the organiser handout is not in the repo. The human puts the SSH command,
+             port, known-hosts path and public URL into .workshop.local.md (git-ignored).
+  BLOCKER 2: gh is not installed -> install it, or agree the manual PR fallback.
+
+M1.2 -- details
+  Little or no code, but the highest-leverage step of the project: it is what lets two
+  tracks work in parallel without inventing incompatible data.
+  WHO REVIEWS IT: the contract is drafted by the milestone lead session and reviewed by
+  the human who did not author that draft — with the M1 lead in Niklas's clone (D2), that
+  is ERIC reviewing the draft, and Niklas reviewing it afterwards. The author of a draft
+  never approves it.
+  Candidate decisions to put in front of both humans (the milestone lead verifies, the
+  humans decide):
+  - Player: stable internal ID (p_...) + display name + optional empty intraId field; two
+    players may share a name; every match and rating refers to the ID, never the name.
+  - Match: ID, mode (ranked | casual | merry-go-round | future fun modes), participants as
+    IDs (2 or more), state (proposed -> reported -> confirmed / disputed), score or
+    placings, reportedBy, timestamps.
+  - Who may report: the ACTING PLAYER. The browser must know who you are. PLAN.md does
+    not spell this out, and M2.3 (loser confirms/disputes) and M3.1 (invitee accepts)
+    both depend on it. See D3.
+  - Ratings: derived from CONFIRMED ranked matches only; casual and fun modes never
+    touch Elo.
+  - Storage: one JSON store under ~/.local/share/vibecode-workshop/data/ (path
+    overridable by env var), written atomically, loaded once at boot, kept in memory,
+    flushed on change. The store module is the ONLY writer; both tracks call it; nobody
+    edits files directly.
+  - API surface: JSON over /api/*, one prefix per feature (/api/players, /api/matches,
+    /api/queue, /api/tournaments for L; /api/invites, /api/rounds for F), so the two
+    tracks rarely touch the same router file.
+  - Change rule after G2: a contract change is a new M1.x step agreed by both humans.
+
+M1.3 -- details
+  The first real code step and the base both tracks build on. Candidate acceptance cases
+  for the brief (milestone lead confirms, humans confirm):
+  - normal: two players are created, a 2-1 result is recorded, both players see it after a
+    reload and on a second device;
+  - ACTING PLAYER: the page knows who you are (pick or create a player, remembered in the
+    browser). Without this, M2.3 and M3.1 cannot exist;
+  - empty state: with no players or matches, the page says what to do first;
+  - failure: reporting against a nonexistent player, a match with no winner, or a match
+    with the same player twice is refused with a clear message and stores nothing;
+  - restart: the data is still there after the app restarts;
+  - boundary: the store is outside the release directory; npm test stays green;
+    /api/health still returns the deployed revision; the repo root and .env stay
+    undownloadable.
+  Browser task: join and record a result at 1440x1000 and 375x812, one-handed, next to a
+  table.
+
+M1.4 -- details
+  Both humans, no agent work. Each observation becomes a numbered step (M1.5, M1.6, ...)
+  or is explicitly deferred with a reason in PLAN.md.
+
+  THE M1.4 BUILD MUST EXIST AT THE LIVE URL BEFORE THE PHONE JOURNEY. M1.4 therefore
+  needs its own explicitly authorised EARLY RELEASE, following the precedent in
+  docs/workflow.md ("Initial M1.1 is an explicitly agreed early release of the starting
+  page, so hosting problems surface before features"):
+    1. The committer deploys the M1.3 SHA to the guest — only after the human gives the
+       explicit release instruction ("deploy M1.3 for the phone check"). Agents never
+       deploy on their own initiative.
+    2. The committer runs `npm run smoke -- https://<assigned-url>` FROM A LAPTOP and
+       records the revision the URL reports.
+    3. Both humans open that URL on their phones and walk the journey. Each observation
+       becomes a numbered step or an explicit deferral in PLAN.md.
+    4. G3 is reached when both humans accept the journey ON THAT LIVE SHA.
+    5. The final M1 release (if the SHA changed since) is a separate explicit instruction.
+
+  Without step 1, G3 is circular: the phone journey would need a live build, and the
+  live build would need an accepted milestone.
+
+--- M2  Ladder track (Niklas) ----------------------------------------------
+Milestone lead: a fresh session in NIKLAS's own clone of the fork.
+Coder: mid-tier model. Reviewer: strong model. Partner check: ERIC's session, different
+provider. Cross-review is the point: each human sees the other track's code.
+
+M2.1  Confirmed ranked matches update both Elo ratings; the ladder page shows ranks.
+      Depends on M1.3.
+      Brief notes: rating is a DERIVED value, recomputed from the confirmed match
+      history, so replaying history gives the same ladder. 1000 start, K=32. The ladder
+      is read-only in this step.
+M2.2  A player joins the ranked queue and is paired with a waiting player; both see who
+      to play. Depends on M2.1.
+      Brief notes: one player alone waits and is never paired with themselves; a second
+      joiner creates EXACTLY ONE pairing; leaving removes the player before pairing.
+      Decide whether pairing considers rating.
+M2.3  The loser confirms or disputes a reported ranked result; only confirmed results
+      change ratings. Depends on M2.1.
+      Brief notes: a disputed result leaves both ratings untouched and stays visible to
+      both players. The losing side is the one who acts: this is where the acting-player
+      rule from M1.2 earns its keep.
+M2.4  An organiser creates a single-elimination tournament; results advance the bracket.
+      Depends on M2.3. Stretch: odd player counts need byes and nobody plays twice in a
+      round.
+
+--- M3  Fun track (Eric) ---------------------------------------------------
+Milestone lead: a fresh session in ERIC's own clone of the fork.
+Coder: mid-tier model. Reviewer: strong model. Partner check: NIKLAS's session, different
+provider.
+
+M3.1  A player invites a named player to a casual match; the invitee accepts or declines.
+      Depends on M1.3.
+      Brief notes: an invite to yourself or to a nonexistent player is refused; a
+      declined invite records no match; the invite refers to the player's ID, not the
+      display name.
+M3.2  Casual results are recorded and visible but never change Elo. Depends on M3.1.
+      Brief notes: hard rule from the ladder track's point of view: after a casual match
+      both ratings are EXACTLY unchanged. The reviewer checks this.
+M3.3  Merry-go-round: 3 or more players start a round, eliminations are recorded, a
+      winner is shown. Depends on M1.3.
+      Brief notes: 2 players is refused (needs 3+); 3 players and two eliminations produce
+      one winner; nobody is eliminated twice; one tap per elimination on a phone.
+M3.4  One more fun mode, chosen by Eric after M3.3. Depends on M3.3.
+      Brief notes: Eric proposes the new mode ID and it is added to PLAN.md before it is
+      briefed.
+
+--- M4  Demo (joint) ------------------------------------------------------
+One end-to-end run on phones at the live URL: queue -> play -> confirm -> ladder, then
+invite -> casual, then merry-go-round. The milestone leads stop; the humans run it.
+Release of the merged SHA is a HUMAN INSTRUCTION, never an agent's initiative.
+
+====================================================================
+6. PARALLEL-TRACK OWNERSHIP AND INTEGRATION ORDER (M2 || M3)
+====================================================================
+Two clones, two milestone leads, one main.
+
+PATH                                        OWNER            RULE
+storage module, domain model, HTTP router,  M1, frozen at    changing it after G2 needs
+shared UI shell                             G2                both humans and a new M1.x step
+elo, queue, tournament modules + their      Niklas (M2)      free to change inside M2
+API prefixes + their screens
+invite, round modules + their API           Eric (M3)        free to change inside M3
+prefixes + their screens
+UI route registry / navigation (one small   shared, one      whoever touches it merges
+shared file)                                owner at a time  first; the other rebases and
+                                                           re-runs its own journey. Most
+                                                           likely conflict point: keep it
+                                                           tiny and additive.
+
+Integration order rule: ONE MERGE AT A TIME. The second track's committer waits for the
+first to land, then rebases and re-runs its own acceptance cases, because a merged change
+to the shared core can invalidate the other track's evidence. If a step's reviewed SHA no
+longer sits on the new main in a compatible way, it needs a re-review. That is the normal
+case, not a failure.
+
+====================================================================
+7. EVIDENCE MAP
+====================================================================
+Every step gets one directory: .ai/work/<STEP>/
+
+FILE          WRITTEN BY       CONTAINS
+brief.md      milestone lead   outcome, audit, acceptance cases, base SHA, branch,
+                              boundaries
+validation.md coder            base/head SHA, every command and its real output, browser
+                              evidence or the reason it is missing, limitations, which
+                              Node runtime was used
+review.md     reviewer         reviewed base/head SHA, what was checked, findings with
+                              severity and a concrete failing case, APPROVE or
+                              REQUEST CHANGES
+pr.md         committer        PR body from the template, links to the three files above
+
+Then the session trail in .ai/sessions/<date>-<step>.md and the step's row in PLAN.md
+(state + PR link). GitHub PR state is the board; we link it, we do not duplicate it.
+
+====================================================================
+8. RISKS, CUT LINE AND THE SHAPE OF THE DAY
+====================================================================
+R1  gh missing -> no PR, no merge.
+    Signal: `which gh` fails.
+    Response: install before M1.1; fallback is a manual PR in the web UI, with the
+             committer still recording SHAs.
+R2  Wrong Node runtime -> green locally, red on the guest.
+    Signal: node --version < 22.
+    Response: every session runs Node 22 explicitly and states it in validation.md.
+R3  Contract drift between parallel tracks.
+    Signal: two branches define "match" differently.
+    Response: contract frozen at G1; changes after G2 become a new agreed M1.x step.
+R4  Merge conflicts in shared files.
+    Signal: git diff --stat shows the registry or the shared shell.
+    Response: ownership map above; one merge at a time; rebase and re-verify after every
+             shared-core merge.
+R5  Demo data pollution.
+    Signal: ~/.local/share/vibecode-workshop/data/ full of test matches.
+    Response: agree a reset procedure for OUR OWN data before the demo (documented,
+             team-owned path only; never another team's data).
+R6  "Players report honestly" is an untested assumption.
+    Signal: reported results nobody checks.
+    Response: mitigated by M2.3 confirm/dispute. If time runs short, at least record WHO
+             reported, and say the assumption is untested.
+R7  Reviewer cannot judge UI from a diff.
+    Signal: "the page looks fine" in validation.md.
+    Response: the reviewer starts the app itself; without a browser tool it must state
+             that the journey was NOT verified.
+R8  Two humans, one checkout, one port.
+    Signal: EADDRINUSE on 3000.
+    Response: separate clones per human; local dev on PORT=3001.
+R9  Context drift between sessions.
+    Signal: a brief references something that does not exist.
+    Response: the milestone lead dispatches real SHAs and paths, never prose summaries; a
+             session that finds a missing dependency stops and reports.
+
+CUT LINE for a one-day workshop
+  P0 must ship : M1.1, M1.2, M1.3, M1.4, M2.1, M2.2, M2.3, M3.1, M3.2
+                  The agreed demo journey: queue -> play -> confirm -> ladder, plus one
+                  casual invite. Without M1.3 nothing else exists; without M2.1-M2.3
+                  there is no ladder.
+  P1 first P1 item to cut : M3.3 merry-go-round. Most visible fun item, depends only on
+                  M1.3, so it can be picked up late without blocking anything.
+  P2 stretch    : M2.4 tournament, M3.4 extra mode. Stretch goals in IDEA.md. A visible
+                  half-finished bracket is worse than no bracket.
+  Order of sacrifice when the clock runs out, cutting the least important first:
+  M3.4 -> M2.4 -> M3.3, and say so in PLAN.md rather than leaving a silent hole. A cut
+  mode is a human decision. (M3.3 is last of the three because it is the most visible
+  demo item; it is still the first P1 group to be dropped if the day runs out.)
+
+SHAPE OF THE DAY
+  Block A : M1.1 -> M1.4 (joint, one lead). Nothing in M2/M3 starts before G2.
+  Block B : M2 and M3 in parallel (two clones, two leads, cross-review). One merge at
+            a time.
+  Block C : M4, one phone run of the whole journey, then the release. Release only on
+            an explicit human instruction.
+
+====================================================================
+9. OPEN DECISIONS FOR THE HUMAN
+====================================================================
+D1  Keep the dependency-free Node starter, or replace the framework (Next.js/Vite)?
+    RECOMMENDATION: keep the starter. npm ci is instant, the 2 GB build scope never
+    bites, the deploy contract is already satisfied and tested. A framework swap buys
+    nicer DX and costs contract risk and time we need for M2/M3. If a swap is chosen it
+    must be its own step (the next free ID, M1.5) satisfying the AGENTS.md replacement
+    contract, and it must land BEFORE the two tracks split.
+    IF UNDECIDED: the two tracks may build on different assumptions about the shared core.
+
+D2  Who runs the M1 milestone lead, and in whose clone?
+    RECOMMENDATION: the fork owner (Niklas, author of 82ebb23) runs the M1 lead and
+    holds the gh auth; Eric's clone stays free for M3 and the partner check of M1.3.
+    IF UNDECIDED: two writers in one checkout; PRs opened against the wrong repo.
+
+D3  Is "acting player" (the page knows who you are) part of M1.3?
+    RECOMMENDATION: yes. M2.3 (loser confirms/disputes) and M3.1 (invitee accepts) both
+    need it. Without it each track invents its own identity mechanism and the shared
+    format breaks at the seam.
+    IF UNDECIDED: M2 and M3 each invent their own identity -> contract drift at G4.
+
+D4  Install GitHub CLI before M1.1, or use the manual web-UI PR flow all day?
+    RECOMMENDATION: install it. The committer role, the partner check and the CI checks
+    all assume gh pr create / gh pr merge / gh pr checks.
+    IF UNDECIDED: the committer role stalls at every step.
+
+D5  Confirm the cut line order (M3.4 -> M2.4 -> M3.3) and the P0 set.
+    RECOMMENDATION: accept as written.
+    IF UNDECIDED: the team discovers the shortfall during the demo instead of in the plan.
+
+STILL OPEN FROM THE PREVIOUS SESSION: Eric confirms that "invite" means inviting inside our
+app, not 42 intra. PLAN.md and .ai/team/eric.md assume inside-our-app. Confirm before M3.1
+is briefed.
+
+====================================================================
+10. WHAT THE PROJECT LEAD DOES NEXT
+====================================================================
+1. Get D1-D5 answered. D2, D4 and the gh install can happen immediately, in parallel.
+2. Get the organiser handout into .workshop.local.md and install GitHub CLI.
+3. Hand M1 to a milestone lead session: /milestone-lead M1 in the fork owner's clone.
+4. Hold the gates: no M2/M3 session before G2, no release before G3.
+5. Keep PLAN.md as the status board: every merged step gets its row and PR link updated
+   by the committer, and the cut line is applied there if the day runs short.
