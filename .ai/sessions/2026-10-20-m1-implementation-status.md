@@ -21,9 +21,12 @@ go wrong next.
 - **`main` is still at `82ebb23`. Nothing is merged.** PR #4 is the next one to merge: its
   contract text is settled and only evidence-file findings are open (see below).
 - **M1.3 has to be reshaped.** Its coder session started before M1.2 was agreed, against a
-  draft contract that has since been replaced. The storage layer, HTTP plumbing, test harness
-  and page shell are reusable; the **record shapes are not**. The new brief is
+  draft contract that has since been replaced — it implemented the reviewed revision of the
+  *draft* (`a8d724a`), not Niklas's agreed contract. The storage layer, HTTP plumbing, test
+  harness and page shell are reusable; the **record shapes are not**. The new brief is
   `.ai/work/M1.3/brief.md` on `main` (after PR #4 merges), with a table of what to reshape.
+  The coder's own report says the same: *"This branch must be rebased onto the merged M1.2
+  before review."*
 - **M3.1–M3.3 (the fun track) have not started.** Their briefs are written and ready:
   `M3.1` (casual invite experience), `M3.2` (the casual result), `M3.3` (merry-go-round).
 - The **M1.4 phone journey** needs an explicitly authorised early release of the M1.3 SHA
@@ -35,10 +38,14 @@ go wrong next.
    M1.2 draft, so it still carries that draft's `docs/data-contract.md` and
    `.ai/work/M1.2/*` files. Merging it would put the draft contract into `main` and collide
    with PR #4's contract. Rebase it onto `main` **after PR #4 merges** and drop those files.
-2. **PR #5 was pushed from a working directory that no longer exists** (its layout is `lib/`,
-   while the worktree at `/tmp/opencode/pp-m13` holds an earlier iteration with `src/` and 11
-   uncommitted files). Both exist; neither is authoritative. The pushed branch is the later
-   one.
+2. **There are TWO M1.3 implementations, and PR #5 is the weaker one.** The coder session's
+   own work is the **local** branch at `/tmp/opencode/pp-m13`, head `a16442d` (implementation
+   `a097459`, evidence `a16442d`), tree clean, **not pushed**. It uses `src/`, has 58 passing
+   tests on Node 22, and was checked in a real Chrome at phone and desktop widths. PR #5
+   (`origin/m1.3-first-match` @ `2afed9c`) is a *different* implementation with a `lib/`
+   layout, pushed from another working directory, and its review was written by the same
+   lineage that wrote the code. Both were built against the **superseded** draft contract, so
+   both need the reshape. Prefer the local one: it has the stronger evidence.
 3. **PR #5's review is not independent.** The coder session dispatched its own reviewer and
    wrote `.ai/work/M1.3/review.md` itself. A fresh session must review the reshaped step.
 
@@ -80,7 +87,11 @@ Next step: merge PR #4 once its evidence findings are fixed, then run the M1.3 f
 against the merged contract in the coder's own session, then review it independently.
 Half-done work: the M1.3 reshape, the M1.1/M1.2/plan evidence findings, and the whole fun
 track M3.1–M3.3.
-Branch / reviewed SHA / PR: see the list above.
+Branch / reviewed SHA / PR: see the list above. The best M1.3 work is the un-pushed local
+branch `a16442d` at `/tmp/opencode/pp-m13`.
 Checks and limitations: `npm test` passes (21 tests, Node v20.11.1 locally — Node 22 is the
-required runtime and was used by the coder sessions). No browser journey was verified by any
-agent. No deploy was performed by an agent: the live revision is Niklas's `82ebb23`.
+required runtime and was used by the coder sessions). The M1.3 coder ran 58 tests on Node
+22.23.3 and walked the journey in a real Chrome at 375×812 and 1440×1000, with screenshots —
+that is the strongest browser evidence in the project so far, but it is headless Chrome, not
+a phone, and it is not yet an independent review. No deploy was performed by an agent: the
+live revision is Niklas's `82ebb23`.
