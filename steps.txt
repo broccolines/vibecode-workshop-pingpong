@@ -34,7 +34,8 @@ Gate       = the check that must pass before the next session starts.
           goes through a PR.
 
 [FACT] The app is the untouched static starter: server.mjs serves public/index.html,
-       /style.css and /api/health; every other method returns 405.
+       /style.css and /api/health; unknown paths answer 404, methods other than
+      GET/HEAD answer 405.
        -> There is NO data layer, NO API, NO persistence. M1.3 onward is greenfield.
 
 [FACT] No docs/data-contract.md and no .ai/work/ directory exist yet.
@@ -83,7 +84,7 @@ G3  milestone accepted  Both humans completed the journey on phones at the live
                         URL, on the SHA that M1.4 was run against.
                                                           blocks the final M1 release
 G4  contract window     After G2, changing the shared format needs both humans
-    closed              and a NEW step ID (e.g. M1.5), never a quiet edit inside
+    closed              and a NEW step ID (the next free M1.x id), never a quiet edit
                         a track branch.                             blocks both tracks
 
 Ordering rule inside M2/M3: the two tracks share main and the shared core. ONE step is
@@ -140,8 +141,8 @@ NOT:    re-interpret the outcome, change implementation, or merge without both a
         APPROVE and the human partner's acceptance
 
 --- CX-5  Partner check (the other human's own session) --------------------
-READ:   the PR diff + .ai/work/<STEP>/brief.md + the running app at the live URL
-        (or a local dev server running the same code)
+READ:   CX-0 + the PR diff + .ai/work/<STEP>/brief.md + the running app at the live
+        URL (or a local dev server running the same code)
 THREE QUESTIONS ONLY: does it deliver the outcome, did it touch unrelated work,
         does it work on a phone next to the table?
 NOTE:   prefer a different provider/model family from the coder (AGENTS.md) and record
@@ -202,7 +203,14 @@ the report-only commit <report-sha>. Verify that <report-sha> differs from <sha>
 files under .ai/work/<STEP>/ — if any implementation file changed, stop and ask for a
 re-review. Re-check CI (gh pr checks), merge into main in
 broccolines/vibecode-workshop-pingpong, then update the PLAN.md row, .ai/context.md and write
-.ai/sessions/<date>-<step>.md. Do not deploy.
+.ai/sessions/<date>-<step>.md. Do not deploy — the only exception is the M1.4 early release
+below, which needs the human's explicit instruction.
+
+--- Committer, M1.4 early release (only on the human's instruction) ---------
+The human authorised the M1.4 early release. Deploy the M1.3 SHA on the assigned guest as
+vc-team, then run the smoke check from a laptop, and report the revision the public URL
+serves. Record both in .ai/work/M1.4/validation.md. This is a release of an unreleased
+milestone for a phone check — it is NOT the M1 release, and G3 is still open.
 
 --- Partner check (the other human, own session, own provider) ------------
 Review PR <link> for step <STEP> against .ai/work/<STEP>/brief.md. Does it deliver the
@@ -224,8 +232,9 @@ M1.1  live starting point
                  URL on a phone
        gate:   G0
 M1.2  shared format
-       sessions: milestone lead drafts docs/data-contract.md -> Niklas reviews ->
-                 Eric reviews -> committer merges the doc
+       sessions: milestone lead drafts docs/data-contract.md -> ERIC reviews first,
+                 Niklas afterwards (the draft's author never approves it) ->
+                 committer merges the doc
        gate:   G1
 M1.3  first recorded match
        sessions: milestone lead (brief) -> coder (CX-2) -> reviewer (CX-3) ->
@@ -233,7 +242,9 @@ M1.3  first recorded match
                  committer phase 2
        gate:   G2
 M1.4  journey on phones
-       sessions: both humans, no agents; observed problems become new step IDs
+       sessions: the JOURNEY is human-only (no agent work); the release that makes it
+                 possible is committer-run on the human's explicit instruction.
+                 Observed problems become new step IDs.
        gate:   G3
 
 M1.1 -- details
@@ -296,8 +307,10 @@ M1.3 -- details
   table.
 
 M1.4 -- details
-  Both humans, no agent work. Each observation becomes a numbered step (M1.5, M1.6, ...)
-  or is explicitly deferred with a reason in PLAN.md.
+  The JOURNEY itself is human-only — no agent work. Each observation becomes a numbered
+  step (the next free M1.x id) or is explicitly deferred with a reason in PLAN.md. The
+  RELEASE that makes the journey possible is committer-run, on the human's explicit
+  instruction, as described next.
 
   THE M1.4 BUILD MUST EXIST AT THE LIVE URL BEFORE THE PHONE JOURNEY. M1.4 therefore
   needs its own explicitly authorised EARLY RELEASE, following the precedent in
@@ -452,7 +465,10 @@ CUT LINE for a one-day workshop
                   casual invite. Without M1.3 nothing else exists; without M2.1-M2.3
                   there is no ladder.
   P1 first P1 item to cut : M3.3 merry-go-round. Most visible fun item, depends only on
-                  M1.3, so it can be picked up late without blocking anything.
+                  M1.3, so it can be picked up late without blocking anything. IF IT IS
+                  CUT, PLAN.md's M4 line must be edited in the same breath to drop the
+                  merry-go-round leg of the demo run — a cut leg is a decision on the
+                  board, never a silent omission.
   P2 stretch    : M2.4 tournament, M3.4 extra mode. Stretch goals in IDEA.md. A visible
                   half-finished bracket is worse than no bracket.
   Order of sacrifice when the clock runs out, cutting the least important first:
@@ -474,7 +490,7 @@ D1  Keep the dependency-free Node starter, or replace the framework (Next.js/Vit
     RECOMMENDATION: keep the starter. npm ci is instant, the 2 GB build scope never
     bites, the deploy contract is already satisfied and tested. A framework swap buys
     nicer DX and costs contract risk and time we need for M2/M3. If a swap is chosen it
-    must be its own step (the next free ID, M1.5) satisfying the AGENTS.md replacement
+    must be its own step (the next free M1.x id) satisfying the AGENTS.md replacement
     contract, and it must land BEFORE the two tracks split.
     IF UNDECIDED: the two tracks may build on different assumptions about the shared core.
 

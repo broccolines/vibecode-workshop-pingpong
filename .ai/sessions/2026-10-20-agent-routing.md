@@ -59,8 +59,8 @@ and returned REQUEST CHANGES with 5 major, 7 minor and 3 nit findings. The fixes
   is greenfield; the storage module and the acting-player rule must land in M1.2/M1.3 or the two
   tracks will invent incompatible versions.
 - `gh` is not installed on this laptop. A GitHub credential *is* stored for github.com, so
-  PRs are opened through the GitHub API against the team fork. Same repository, same
-  protections.
+  PRs are opened through the GitHub API against the team fork. Same repository and the same
+  review rules; branch protection is not assumed, so the committer checks CI by hand.
 - Local Node is v20.11.1 while `package.json` requires >= 22. Every session must run Node 22
   explicitly and say so in `validation.md` — the starter validation already hit this trap.
 - The plan documents were pushed straight to `main` (`82ebb23`) without a PR. Docs only, no

@@ -38,7 +38,7 @@ Two senses of "context window" are used here and both matter:
 | Fact | Where | Consequence |
 |---|---|---|
 | `main` == `origin/main` at `82ebb23` "created plan"; working tree clean | `git log`, `git status` | Plan docs were pushed straight to `main` without a PR. Docs only, no code, so no code review was skipped — but AGENTS.md rule 7 wants PRs. This routing doc goes through a PR. |
-| App is the static starter: `server.mjs` serves `public/index.html` + `/style.css` + `/api/health`; every other method is `405` | `server.mjs`, `public/` | There is **no data layer, no API, no persistence**. Everything in M1.3 onward is greenfield. |
+| App is the static starter: `server.mjs` serves `public/index.html` + `/style.css` + `/api/health`; unknown paths answer `404`, methods other than GET/HEAD answer `405` | `server.mjs`, `public/` | There is **no data layer, no API, no persistence**. Everything in M1.3 onward is greenfield. |
 | No `docs/data-contract.md`, no `.ai/work/` directory | repo listing | M1.2 and the milestone briefs have no artefacts yet. |
 | `npm test` → 21 passed, 0 failed locally | this session | Green baseline. `npm test` must stay green; deploy refuses to switch a release when it fails. |
 | Local Node is **v20.11.1**, `package.json` requires `>= 22` | `node --version` | The starter validation already hit this trap. Every coder session must run Node 22 explicitly (`npx -y node@22 --test`, or the validated Node 22 binary), and must say which runtime it used in `validation.md`. |
@@ -61,10 +61,10 @@ Two senses of "context window" are used here and both matter:
 | Gate | Meaning | Blocks |
 |---|---|---|
 | **G0 — live** | Assigned HTTPS URL reachable, `/api/health` reports the intended revision, teammate opens it on a phone | M1.2 |
-| **G1 — contract frozen** | `docs/data-contract.md` reviewed by both humans, shared storage + API surface decided, committed | M2.1, M3.1, M3.3 |
+| **G1 — contract frozen** | `docs/data-contract.md` reviewed by both humans, shared storage + API surface decided, committed | M1.3, M2.1, M3.1, M3.3 |
 | **G2 — first record** | M1.3 merged: two players, a recorded result, survives reload, second visitor, app restart | M2.1, M3.1, M3.3 |
 | **G3 — milestone accepted** | Both humans completed the journey on phones at the live URL, on the SHA that M1.4 was run against | The final M1 release |
-| **G4 — contract change window closed** | After G2, changes to the shared format need both humans and a **new step ID** (e.g. M1.5), never a quiet edit in a track branch | Both tracks |
+| **G4 — contract change window closed** | After G2, changes to the shared format need both humans and a **new step ID** (the next free `M1.x` id), never a quiet edit in a track branch | Both tracks |
 
 **Ordering rule inside M2/M3.** The two tracks share `main` and the shared core. One step is
 merged at a time; the committer of the second track rebases or waits. Details in §6.
@@ -123,8 +123,8 @@ steps, start the app themselves and walk the journey at desktop and phone widths
 and the human partner's acceptance.
 
 ### CX-5 — Partner check (the other human's own session)
-**Read:** the PR diff + `.ai/work/<STEP>/brief.md` + the running app at the live URL (or a local
-dev server with the same code).
+**Read:** CX-0 + the PR diff + `.ai/work/<STEP>/brief.md` + the running app at the live URL (or
+a local dev server with the same code).
 **Three questions only:** does it deliver the outcome, did it touch unrelated work, does it work
 on a phone next to the table?
 **Prefer a different provider/model family** from the coder (AGENTS.md). Record which provider
@@ -195,7 +195,17 @@ the report-only commit <report-sha>. Verify that <report-sha> differs from <sha>
 files under .ai/work/<STEP>/ — if any implementation file changed, stop and ask for a
 re-review. Re-check CI (gh pr checks), merge into main in
 broccolines/vibecode-workshop-pingpong, then update the PLAN.md row, .ai/context.md and write
-.ai/sessions/<date>-<step>.md. Do not deploy.
+.ai/sessions/<date>-<step>.md. Do not deploy — the only exception is the M1.4 early release
+below, which needs the human's explicit instruction.
+```
+
+**Commiter, M1.4 early release** (only when the human gives the instruction "deploy M1.3 for
+the phone check"):
+```
+The human authorised the M1.4 early release. Deploy the M1.3 SHA on the assigned guest as
+vc-team, then run the smoke check from a laptop, and report the revision the public URL
+serves. Record both in .ai/work/M1.4/validation.md. This is a release of an unreleased
+milestone for a phone check — it is NOT the M1 release, and G3 is still open.
 ```
 
 **Partner check** (the other human, own session, own provider):
@@ -218,7 +228,7 @@ owns the *process*. Both humans gate every merge.
 | Step | Sessions, in order | Gate |
 |---|---|---|
 | **M1.1** live starting point | milestone lead (writes brief) → **deployer session** in the guest shell (CX-0 + CX-6 + `docs/deploy.md`) → human gate: both humans open the URL on a phone | G0 |
-| **M1.2** shared format | milestone lead drafts `docs/data-contract.md` → Niklas reviews → Eric reviews → committer merges the doc | G1 |
+| **M1.2** shared format | milestone lead drafts `docs/data-contract.md` → **Eric reviews first, Niklas afterwards** (the draft's author never approves it, and with the M1 lead in Niklas's clone, D2, Niklas's session is the author) → committer merges the doc | G1 |
 | **M1.3** first recorded match | milestone lead (brief) → coder (CX-2) → reviewer (CX-3) → committer phase 1 → **Niklas's session partner check** (CX-5) → committer phase 2 | G2 |
 | **M1.4** journey on phones | both humans, no agents; observed problems become new step IDs | G3 |
 
@@ -274,8 +284,10 @@ acceptance cases for the brief (milestone lead confirms, humans confirm):
   still returns the deployed revision; the repo root and `.env` stay undownloadable.
 *Browser task:* join and record a result at 1440×1000 and 375×812, one-handed, next to a table.
 
-**M1.4 — details.** Both humans, no agent work. Each observation becomes a numbered step
-(`M1.5`, `M1.6`, …) or is explicitly deferred with a reason in `PLAN.md`.
+**M1.4 — details.** The **journey itself is human-only** — no agent work. Each observation
+becomes a numbered step (`M1.5`, `M1.6`, …, the next free `M1.x` id) or is explicitly deferred
+with a reason in `PLAN.md`. The **release that makes the journey possible is committer-run**,
+on the human's explicit instruction, as described next.
 
 **The M1.4 build must exist at the live URL before the phone journey.** M1.4 therefore needs
 its own explicitly authorised **early release**, following the precedent in
@@ -382,7 +394,7 @@ Then the session trail in `.ai/sessions/<date>-<step>.md` and the step's row in 
 | Priority | Steps | Why |
 |---|---|---|
 | **P0 — must ship** | M1.1, M1.2, M1.3, M1.4, M2.1, M2.2, M2.3, M3.1, M3.2 | The agreed demo journey: queue → play → confirm → ladder, plus one casual invite. Without M1.3 nothing else exists; without M2.1–M2.3 there is no ladder. |
-| **P1 — first P1 item to cut** | M3.3 merry-go-round | It is the most visible "fun" item and depends only on M1.3, so it can be picked up late without blocking anything. |
+| **P1 — first P1 item to cut** | M3.3 merry-go-round | It is the most visible "fun" item and depends only on M1.3, so it can be picked up late without blocking anything. **If it is cut, PLAN.md's M4 line must be edited in the same breath** to drop the merry-go-round leg of the demo run — a cut leg is a decision on the board, never a silent omission. |
 | **P2 — stretch** | M2.4 tournament, M3.4 extra mode | Stretch goals in IDEA.md. A visible half-finished bracket is worse than no bracket. |
 
 Order of sacrifice when the clock runs out, cutting the least important first:
@@ -404,7 +416,7 @@ most visible demo item; it is still the first P1 group to be dropped if the day 
 
 | ID | Decision | Recommendation | Consequence of not deciding |
 |---|---|---|---|
-| **D1** | Keep the dependency-free Node starter, or replace the framework (Next.js/Vite)? | **Keep the starter.** `npm ci` is instant, the 2 GB build scope never bites, the deploy contract is already satisfied and tested. A framework swap buys nicer DX and costs contract risk and time we need for M2/M3. If a swap is chosen, it must be its own step (the next free ID, **M1.5**) that satisfies the AGENTS.md replacement contract, and it must land **before** the two tracks split. | The two tracks may build on different assumptions about the shared core. |
+| **D1** | Keep the dependency-free Node starter, or replace the framework (Next.js/Vite)? | **Keep the starter.** `npm ci` is instant, the 2 GB build scope never bites, the deploy contract is already satisfied and tested. A framework swap buys nicer DX and costs contract risk and time we need for M2/M3. If a swap is chosen, it must be its own step (the **next free `M1.x` id**) that satisfies the AGENTS.md replacement contract, and it must land **before** the two tracks split. | The two tracks may build on different assumptions about the shared core. |
 | **D2** | Who runs the M1 milestone lead, and in whose clone? | The **fork owner** (Niklas, author of `82ebb23`) runs the M1 lead and holds `gh` auth; Eric's clone is reserved for M3 and the partner check of M1.3. | Two writers in one checkout; PRs opened against the wrong repo. |
 | **D3** | Is "acting player" (the page knows who you are) part of M1.3? | **Yes.** M2.3 (loser confirms/disputes) and M3.1 (invitee accepts) both need it. Without it, both tracks must invent identity separately and the shared format breaks at the seam. | M2 and M3 each invent their own identity mechanism → contract drift at G4. |
 | **D4** | Install GitHub CLI before M1.1, or use the manual web-UI PR flow for the whole day? | **Install it.** The committer role, the partner check and CI checks all assume `gh`. | The committer role stalls at every step. |
