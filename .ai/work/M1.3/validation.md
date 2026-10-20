@@ -1,0 +1,28 @@
+# M1.3 validation
+
+- Branch: m1.3-first-match
+- Base SHA: 33f0c75204f4474317f657a473de2d585f3a4c03 (approved M1.2 head; brief commit ef6784d on top)
+- Code head SHA: 2a7f6d9b2c8230cb618acd96f02cf7dbb5e5907a (this validation file is committed afterwards; the final head is the commit that adds it)
+
+## What was built
+- `lib/store.mjs`: durable store. `lib/ladder.mjs`: player and match rules (contract 1, 2, 3, 7). `server.mjs`: `GET/POST /api/players`, `GET/POST /api/matches`; `/api/health` unchanged. `public/index.html`, `public/app.js`, `public/style.css`: one-page UI. No new dependencies; lockfile untouched.
+- Recorded match = contract match record, `mode: casual`, stored directly as `confirmed`, `createdBy` = `reportedBy` = acting player, `reportedAt` = `confirmedAt` = `updatedAt` = `createdAt`, `decidedBy` null (as in contract example 8.3), `details` {}. Client-requested `ranked` is rejected (403); other modes are rejected. The acting player must exist and be one of the two participants. No contract conflict found; docs/data-contract.md is unchanged.
+
+## Storage, concurrency and crash safety
+- Data: one file `store.json` in `DATA_DIR` (default `~/.local/share/vibecode-workshop/data/`; created if missing). Startup refuses a `DATA_DIR` inside the app directory, fails visibly if the directory cannot be created or written (the store is rewritten once at open), and fails visibly on an unreadable/corrupt store rather than starting empty. Every player and match has `schemaVersion: 1`. Records are held whole, so unknown fields (and unknown top-level fields) are preserved on rewrite.
+- Concurrency: all changes go through `Store.update`, a promise-chain queue. Each update validates against the latest state (so the duplicate-name check and ID uniqueness are race-free), builds a new document, writes it durably and only then swaps it into memory. Parallel creations therefore run one after another: different names both survive, identical names give one 201 and the rest 409.
+- Crash safety: write to a unique temp file in the same directory, fsync, rename over `store.json` (atomic), fsync the directory. A crash leaves the old or new file; leftover `store.json.*.tmp` files are deleted at startup. A failed write leaves memory and disk on the previous state and the queue keeps working.
+- Not served: the HTTP layer is a whitelist (`/`, `/style.css`, `/app.js`, `/api/*`); everything else is 404.
+
+## Commands and results
+- `npm test`: 30 tests, 29 pass, 1 fail. The failure is the known macOS-only `deploy lock rejects a second holder...` ("flock is missing"), in test/deploy.test.mjs, unrelated to this step. All of test/app.test.mjs (updated: fixture opens a temp store; the POST-rejected test now checks 405 + `allow: GET, HEAD` on /, /style.css, /app.js, /api/health; traversal/repo-file 404 test unchanged) and test/ladder.test.mjs pass. test/ladder.test.mjs covers: empty state and normal Anna 2-1 Ben with contract shape; restart persistence with temp DATA_DIR and unknown-field preservation; name validation and duplicates (`Anna` vs ` anna `, empty, whitespace, 31 chars, control char, non-string, bad JSON, wrong content-type, oversize body); 19 match failure cases each asserting a message and unchanged stored state; 20 concurrent different-name creations, 10 concurrent same-name creations (exactly one), 10 concurrent matches, file parseable and no temp files left; failed write leaves previous state; stale tmp file ignored and corrupt store rejected; unwritable location rejected; data boundary (store.json and repo paths 404, DATA_DIR outside repo, DELETE 405).
+- Manual process check (HTTP via curl, NOT a browser check): started `PORT=3001 DATA_DIR=<temp> node server.mjs`; `/api/health` returned `{"ok":true,"revision":"development"}`; created Anna and Ben, recorded Anna 2-1 Ben (201, full record returned), " anna " rejected (409, message), `/store.json` returned 404, `/app.js` 200; `kill -9` the server, restarted with the same DATA_DIR: both players and the match were returned; the directory contained only `store.json` (mode 600). Starting with `DATA_DIR` inside the repo exits with an error.
+
+## Browser task: NOT DONE
+No browser tool was available in this session. The page (desktop and about 390 px width, tap targets, no horizontal scroll, empty-state texts, reload/second-device journey) has not been viewed. The layout is written to be responsive (single column, `min-height: 2.75rem` controls, wrapping rows) but that is unverified. The reviewer or milestone lead needs to check it in a browser. Empty-state texts are in `public/app.js` `render()`.
+
+## Limitations
+- Single process only: the queue is in-process. Two app processes on the same DATA_DIR (for example overlapping during a deploy) could overwrite each other's writes; the guest runs one service. No cross-process file lock.
+- The whole store is rewritten per change and held in memory; fine for a demo size, not for large data.
+- No login: the acting player is whatever the client sends (honour system, contract section 3). The match list is not live-updated; reload shows others' changes.
+- The `flock` test fails on macOS as known; it was not run on Linux.
