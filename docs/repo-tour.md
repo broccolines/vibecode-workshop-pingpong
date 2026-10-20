@@ -27,17 +27,18 @@ A commit on GitHub does **not** change the live site. `npm run deploy` does.
 | **branch** | A parallel line of work. `main` = reviewed, shippable code. `m1.3-first-match` = work in progress. |
 | **commit** | A named snapshot. The SHA (`82ebb23`) is its permanent fingerprint — evidence files cite SHAs so nobody can argue about what was reviewed. |
 | **PR** | "Please merge this branch." The **unit of review**. One step = one branch = one PR. |
-| **CI** | GitHub runs `npm ci && npm test` on every push and PR (`.github/workflows/check.yml`). A red check blocks merging. |
+| **CI** | GitHub runs `npm ci && npm test` on every push and PR (`.github/workflows/check.yml`) and reports red or green. **It does not block merging by itself** — branch protection is not assumed, so the committer must check it (see `docs/workflow.md`). |
 
 ### Branches at the time of writing
 
 ```
 main                82ebb23  [origin/main]              ← reviewed baseline
-* plan-agent-routing e00a97d [origin/plan-agent-routing] ← planning docs, not yet merged
+* plan-agent-routing         (a branch; its tip moves)  ← planning docs, not yet merged
 ```
 
 `plan-agent-routing` holds the routing plan and `steps.txt`. `main` is untouched. **Nothing
-is merged yet** — a PR has to be opened on GitHub.
+is merged yet** — a PR has to be opened on GitHub. Branch tips move; check
+`git log --oneline <branch>` for the current SHA rather than trusting a SHA written in prose.
 
 ### The commands you'll actually use
 
@@ -116,7 +117,7 @@ agents write down what they did, so you can check it instead of trusting a chat 
 
 | File | Job |
 |---|---|
-| `server.mjs` | The whole backend. 52 lines: serves `public/`, answers `/api/health`, rejects everything else with `405`. **No data layer yet.** |
+| `server.mjs` | The whole backend. 52 lines: serves `public/`, answers `/api/health`, answers `404` for unknown paths and `405` for methods other than GET/HEAD. **No data layer yet.** |
 | `public/index.html` | The page. Only files in `public/` are web-accessible — the repo root is never served. |
 | `public/style.css` | Styling. |
 | `test/app.test.mjs` | 3 real HTTP tests: page + CSS + health, path traversal blocked, HEAD/405. |
@@ -186,8 +187,8 @@ reviewer's context packet (`CX-3`) in `steps.txt` explicitly excludes it.
    sessions are the mechanism that makes review independent.
 3. **Look at the diff before approving.** `git diff main...<branch>` is the exact thing the
    reviewer judges. You can read it too.
-4. **Never let an agent merge on its own.** Merging is a human act here: the committer merges
-   only after you accepted the PR.
+4. **A human authorises, the committer session merges.** Never let an agent merge on its own
+   initiative: the committer merges only after you accepted the PR.
 5. **Two humans, two clones.** If you and Niklas share one checkout and one starts a branch
    while the other is on `main`, you will fight over files. Clone twice.
 6. **Private stuff stays out of git.** Connection details go in `.workshop.local.md`
