@@ -10,7 +10,8 @@
 - The branch history of `m1.1-live-url` was rewritten before merge, so the assigned URL that
   an earlier commit had written into the evidence never enters `main`'s history. See
   "Known disclosure" in `.ai/work/M1.1/validation.md`. Niklas's local clone must be realigned
-  with `git fetch origin && git reset --hard origin/m1.1-live-url`.
+  Check `git status` first and save any uncommitted work, then `git fetch origin`,
+  `git checkout m1.1-live-url` and `git reset --hard origin/m1.1-live-url`.
 
 ## Handoff
 
@@ -24,10 +25,12 @@ Reviewed SHAs so far:
 |---|---|---|---|
 | 1 | `82ebb23` | `f4ce1f1` | REQUEST CHANGES — 1 blocker (the assigned URL was committed), plus major/minor findings |
 | 2 | `82ebb23` | `f8ea058` | REQUEST CHANGES — the evidence was fixed, but the leaked URL was still in the branch history, which would have put it into `main`'s history on merge |
-| 3 | `82ebb23` | rewritten single commit | see `.ai/work/M1.1/review.md` |
+| 3 | `82ebb23` | `8ca61f6` (the rewritten single commit) | REQUEST CHANGES — 6 minor findings |
+| 4 | `82ebb23` | `1ea2ccb` | REQUEST CHANGES — 4 minor findings |
+| 5 | `82ebb23` | the commit after `1ea2ccb` | see `.ai/work/M1.1/review.md` |
 
-Next step: the round-3 review of the rewritten head, then Eric's phone check, then the
-committer merges the evidence PR. After that, brief M1.2.
+Next step: the round-5 review of the latest head, then Eric's phone check, then the
+committer merges the evidence PR. The M1.2 contract is already open as PR #4.
 
 Half-done work: Eric's phone check, Eric's push access, Eric's personal SSH key on the guest,
 GitHub Actions runs, and the Node version on Niklas's Mac are all still open — see

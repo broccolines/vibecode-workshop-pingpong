@@ -45,29 +45,67 @@ placeholder serves again) was not exercised, because nothing failed.
 ## Access boundary
 
 - [x] The deploy ran on the guest as `vc-team`, without sudo.
-- [ ] `~/workshop` was not modified — **not independently checked.** The deploy helper does
-      not write there by design (`scripts/deploy.mjs` guards that path and prints the line
-      unconditionally on success), so this is the helper's own statement, not an observation.
-      Nobody looked at the directory's timestamps.
+`~/workshop` was not modified — **not independently checked.** The deploy helper does not
+write there by design (`scripts/deploy.mjs` guards that path and prints the line
+unconditionally on success), so this is the helper's own statement, not an observation.
+Nobody looked at the directory's timestamps. It is on the open list below.
 - [x] The guest checkout now pulls our public fork, so **no credential is needed** for the
       fetch — the fork is public. Whether some *other* credential is stored on the guest (an
       old remote, a credential helper, a key) was **not verified**: the guest's credential
       store was not inspected.
-- [ ] **Open:** Eric has not confirmed his push access to the fork.
-- [ ] **Open:** Eric has not yet added his own personal public key to the guest's
-      `~/.ssh/authorized_keys`, and has not connected with it. The key used for this step was
-      the shared bootstrap team key from the handout, held in Niklas's clone.
-- [ ] **Open:** no `Check` run on GitHub for our fork. `gh run list` showed no runs, so Actions
-      likely needs enabling in the fork settings.
-- [ ] **Open:** no host, port, key path or token appears in the repository. This step found and
-      removed one violation — the assigned URL and the team number were written into this file
-      and into `.ai/context.md` by an earlier version of it. See "Known disclosure" below.
+- [x] No host, port, key path or token appears in the repository. This step found and removed
+      one violation — the assigned URL and the team number were written into this file and into
+      `.ai/context.md` by an earlier version of it. The branch tip is clean; see "Known
+      disclosure" below for what happened to the history.
+
+The open items for M1.1 are the same list as in `.ai/context.md`:
+
+- [ ] **Eric's phone check** of the assigned URL: the device, the time and what he saw.
+- [ ] **Eric's push access** to the fork.
+- [ ] **Eric's own personal SSH public key** added to the guest's `~/.ssh/authorized_keys`,
+      and a connection with it. The deploy used the shared bootstrap team key from the
+      handout, held in Niklas's clone.
+- [ ] **GitHub Actions**: the workflow is active for the fork, but no run has been produced
+      for any push or pull request yet. This is an organiser-side setting to check.
+- [ ] **The Node version used on Niklas's Mac** for the laptop smoke is not recorded.
+      Niklas to add it.
+- [ ] **`~/workshop` was not independently checked** — nobody looked at the directory's
+      timestamps. The deploy helper's own success message says it was not modified.
+- [ ] **No browser page check** by the M1 lead. The page is still the unchanged starter page.
+- [ ] **Niklas's local clone of `m1.1-live-url` needs to be realigned** after the history
+      rewrite. Check `git status` first and save any uncommitted work, then `git fetch origin`,
+      `git checkout m1.1-live-url` and `git reset --hard origin/m1.1-live-url`.
 
 ## Browser task
 
-- [ ] Eric opens `<assigned URL>` on a phone. Record the device, the time and what he saw.
-- [ ] The M1 lead did not open the page in a browser either; the page is still the unchanged
-      starter page, so no UI finding is expected.
+Eric opens `<assigned URL>` on a phone and records the device, the time and what he saw.
+The M1 lead did not open the page in a browser either; the page is still the unchanged
+starter page, so no UI finding is expected. Both are on the open list below.
+
+## Round 4 findings and what changed
+
+Round 4 reviewed the commit after `8ca61f6` and returned REQUEST CHANGES with four minor
+findings and no blocker: no security regression, but the evidence was still inconsistent with
+itself. What changed:
+
+- **Finding 1** — the review file claimed `git grep -nE "team-0[0-9]" -- .` returns no
+  matches. It does not: the pattern matches the starter's own `team-06` fixture in
+  `test/deploy.test.mjs`. The review file now says so and points at the placeholder-based
+  command in this file, which is the only valid team-specific check.
+- **Finding 2** — the review trail said the round-3 verdict was "recorded below" and "pending"
+  at the same time, and the newest head was not recorded. The verdicts per round and their
+  SHAs are now in one table.
+- **Finding 3** — the round-1 M5 row still described the guest-credential claim as "an
+  inference from a redacted `git remote -v`", wording that no longer exists. It now matches
+  the current evidence.
+- **Finding 4** — the open-item lists in `.ai/context.md` and in this file did not match, and
+  a claim in the review file said they did. They are now the **same eight items**, word for
+  word, and the claim is true.
+- The unsafe `git reset --hard` one-liner was still in three other files (`.ai/context.md`,
+  the review file and the session handoff). All three now say to check `git status` first and
+  save uncommitted work (AGENTS.md rule 3).
+
+Round 5 reviews these fixes on the new head.
 
 ## Known disclosure
 
