@@ -2,7 +2,9 @@
 
 - Branch: m1.3-first-match
 - Base SHA: 33f0c75204f4474317f657a473de2d585f3a4c03 (approved M1.2 head; brief commit ef6784d on top)
-- Code head SHA: 2a7f6d9b2c8230cb618acd96f02cf7dbb5e5907a (this validation file is committed afterwards; the final head is the commit that adds it)
+- Round 1 code head SHA: 2a7f6d9b2c8230cb618acd96f02cf7dbb5e5907a (validation f0eb4b3; reviewed, REQUEST CHANGES)
+- Fix round 1 base: f0eb4b3d1746022eaf024dfbc6c883c5e92f6f4c
+- Fix round 1 code head SHA: 3595d098d8e3d81757086a3f529a348de1df287e (this validation file is committed afterwards; the final head is the commit that adds it)
 
 ## What was built
 - `lib/store.mjs`: durable store. `lib/ladder.mjs`: player and match rules (contract 1, 2, 3, 7). `server.mjs`: `GET/POST /api/players`, `GET/POST /api/matches`; `/api/health` unchanged. `public/index.html`, `public/app.js`, `public/style.css`: one-page UI. No new dependencies; lockfile untouched.
@@ -26,3 +28,12 @@ No browser tool was available in this session. The page (desktop and about 390 p
 - The whole store is rewritten per change and held in memory; fine for a demo size, not for large data.
 - No login: the acting player is whatever the client sends (honour system, contract section 3). The match list is not live-updated; reload shows others' changes.
 - The `flock` test fails on macOS as known; it was not run on Linux.
+
+## Fix round 1 (review findings)
+- F1 (public/app.js, index.html, style.css): the "me" select now starts with a placeholder "Choose yourself..." and nothing is assumed; a saved "me" is only restored if that player still exists, otherwise it is cleared. The record section stays hidden until "me" is chosen and an opponent exists; the hint says to choose yourself or create yourself; the submit handler also refuses an empty me/opponent. Creating a player has a "This is me" checkbox, ticked by default only while no identity is chosen (so a second-device user creating himself becomes "me", and the opponent you create while already identified is not made "me" unless you tick it). The opponent select shows a "Choose opponent..." placeholder when there is more than one candidate. This is UI-only; the second-device journey is NOT verified in a browser (see below). `node --check public/app.js` passes.
+- F2 (lib/ladder.mjs): scores must satisfy `Number.isSafeInteger` and be 0..`MAX_SCORE` = 99. Reason: scores are games won in a best-of match, so single digits are normal; 99 is generous, avoids precision loss above 2^53 and keeps the list readable. Tests: 1e300, 2^53, 100 (cap+1) and `1e999` sent as raw JSON text (parses to Infinity) are rejected with 400 and no state change; 99 is accepted.
+- F3 (test/ladder.test.mjs): `rejected()` now takes the players+matches snapshot before sending the request and compares after, with the label in the failure message. Check that it bites: temporarily disabling the equal-scores rule made the test fail; the rule was restored. The data-boundary test additionally sends raw request paths with `node:http` (no client normalisation): `/../store.json`, `/../server.mjs`, `/public/../server.mjs`, `/api/../package.json`, `/api/players/../../server.mjs`, `/%2e%2e/server.mjs`, `/..%2fserver.mjs`, `/public/%2e%2e/lib/store.mjs`, a backslash variant and `//etc/passwd`; all 404 without leaking content. The fetch-based paths remain.
+- F4 (server.mjs): the guard is now the exported `isInsideDir(root, dir)`: inside means `rel === ''` or not (`rel === '..'` or starts with `'..' + sep`) and not absolute. A sibling like `<repo>/..x` is correctly treated as inside (refused); `/srv/app-data`, `/srv` and `/srv/..x` (relative to `/srv/app/`) are outside. Unit test added. Symlinks into the repo are still not resolved (not requested).
+- Commands: `npm test`: 31 tests, 30 pass, 1 fail; the failure is the same known macOS `flock` deploy-lock test in test/deploy.test.mjs. All of test/app.test.mjs and test/ladder.test.mjs pass.
+- Browser task: still NOT VERIFIED. No browser tool is available to me. Desktop, 390 px, reload and the second-device journey (empty localStorage, existing players, choose-or-create yourself) need someone with a browser.
+- F5 (lookalike names pass the duplicate rule) and F6 (single process, overlapping processes during deploy could lose writes) are info only; no change, recorded here as known limitations alongside the ones above.
