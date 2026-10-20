@@ -1,13 +1,24 @@
 # The idea
 
-Fill this in together after receiving your assigned idea. An agent can help question it; the team decides the outcome.
-
-- Assigned idea:
-- Who has the problem?
-- What can they do by the end of the demo?
-- What one task proves it helped?
-- What constraints matter today?
-- What are we deliberately leaving for later?
-- What remains an assumption that we need to test?
-
-Example acceptance: “A visitor creates a request, reloads, and a second visitor can see it.” “Build a platform” is not a checkable outcome.
+- **Assigned idea:** A campus table-tennis hub for 42 Heilbronn: a ranked ladder with Elo, queue-based matchmaking and tournaments, plus casual invite matches and fun group modes.
+- **Who has the problem?** 42 Heilbronn students who play at the campus table. Today nobody knows who is free to play, who is better than whom, or who won last week. Organising a tournament means a paper list or a chat thread.
+- **What can they do by the end of the demo?**
+  - Join the ranked queue, get paired with an opponent, play at the table, report the score and see both ratings change on the ladder.
+  - Invite a specific person to a casual match that does not affect their rating.
+  - Run one fun group mode with three or more players (merry-go-round, also called "Rundlauf" or "around the world").
+  - Stretch goal: an organiser creates a small knockout tournament and players can follow the bracket.
+- **What one task proves it helped?** Two students who have never played each other are matched by the queue, play, report the result, and the ladder shows the new ranking. A third person can see it on another device.
+- **What constraints matter today?**
+  - Two humans, one workshop day, one live URL on the workshop server (port 3000, no sudo).
+  - The data must survive reloads, other visitors, restarts and redeploys. It is stored on the server, outside the release folders.
+  - It has to be usable on a phone next to the table.
+  - Both tracks share one list of players and one record of matches. That shared format is agreed before the work splits.
+- **What are we deliberately leaving for later?** Playing pong in the browser, 42 intra login (the data is shaped so it can be added later), chat, notifications, seasons and rating resets, anti-cheat beyond result confirmation, and double-elimination or Swiss tournaments.
+- **Decided 2026-10-20:**
+  - The matches are real table tennis played in person at the campus table. The app organises them and records results.
+  - For the demo, players identify by a simple player name with no password. Each player has a stable internal ID separate from the name, so 42 intra login can be attached later without rewriting matches or ratings.
+  - Elo starts at 1000 with a K-factor of 32.
+- **What remains an assumption that we need to test?**
+  - Players will report results honestly if the opponent has to confirm them.
+  - People are physically near the table when the queue pairs them.
+  - "Invite in the intraland infrastructure" means inviting another player inside our app, which runs at our workshop URL on `*.intra.land`. It does not mean integrating with the 42 intra. **Confirm with Eric.**

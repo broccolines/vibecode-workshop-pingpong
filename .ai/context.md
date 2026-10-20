@@ -1,3 +1,3 @@
 # Current focus
 
-M13.27 native guest deploy on `ikodo0/m13.27-native-guest-deploy`. Release pruning, a 2G install/build scope, and one deploy lock are committed and waiting for re-review (`c90b3a1`, `f11b2ea`). No guest was available, so the memory scope was proven only on this machine's user manager. Nothing has been pushed or merged.
+Plan agreed with Niklas on 2026-10-20 on branch `plan-ladder-and-team-briefs` (uncommitted). Next: commit it, open the PR in our fork, have Eric pull it and confirm, then assign the M1 milestone lead and start M1.1 (live URL and health check).

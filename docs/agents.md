@@ -57,3 +57,19 @@ No file in this starter starts agents automatically. This manual route works wit
 Design can be explored in the design tool your team has access to, including Figma or a design-capable agent. Save a chosen reference in the repo and write visual acceptance criteria. Access to any named design product is not supplied here.
 
 Optional integrations belong in [tools.md](tools.md). First make the core loop work.
+
+## This team's Claude Code setup
+
+This repo defines the roles natively for Claude Code. Nothing starts automatically; a human starts each lead.
+
+| Role | How it runs | File |
+|---|---|---|
+| Project lead | Fresh session, type `/project-lead` | `.claude/commands/project-lead.md` |
+| Milestone lead | Fresh session in the owner's clone, type `/milestone-lead M2` | `.claude/commands/milestone-lead.md` |
+| Coder | Subagent dispatched by the milestone lead (Sonnet) | `.claude/agents/coder.md` |
+| Reviewer | Subagent dispatched by the milestone lead (Opus, fresh context, sees only the brief, the diff and the evidence) | `.claude/agents/reviewer.md` |
+| Committer | Subagent dispatched by the milestone lead: opens the PR, then merges after partner acceptance | `.claude/agents/committer.md` |
+
+The reviewer subagent uses a different model from the coder but the same model family. The **partner check** on each PR comes from the other teammate's own session, using Codex or another provider where available. That check provides the cross-family review that AGENTS.md prefers, so record which provider did it.
+
+Parallel tracks (M2 for Niklas, M3 for Eric) each run in their own clone, so two milestone leads never write to the same checkout.
